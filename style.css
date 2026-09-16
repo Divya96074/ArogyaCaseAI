@@ -1,0 +1,225 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f5f7fa;
+    color: #222;
+}
+
+
+/* NAVBAR */
+
+nav {
+    background: white;
+    padding: 20px 40px;
+
+    display: flex;
+    justify-content: space-between;
+
+    border-bottom: 1px solid #ddd;
+}
+
+
+/* CONTAINER */
+
+.container {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+
+/* LOGIN */
+
+.login-container {
+    width: 400px;
+
+    margin: 120px auto;
+
+    padding: 40px;
+
+    background: white;
+
+    text-align: center;
+
+    border-radius: 12px;
+
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+
+/* INPUTS */
+
+input,
+select {
+
+    width: 100%;
+
+    padding: 12px;
+
+    margin-top: 8px;
+
+    margin-bottom: 20px;
+
+    border: 1px solid #ccc;
+
+    border-radius: 6px;
+}
+
+
+/* LABEL */
+
+label {
+
+    display: block;
+
+    font-weight: bold;
+
+    margin-top: 10px;
+}
+
+
+/* BUTTON */
+
+button {
+
+    padding: 12px 20px;
+
+    border: none;
+
+    border-radius: 6px;
+
+    cursor: pointer;
+
+    background: #2563eb;
+
+    color: white;
+
+    font-size: 15px;
+}
+
+
+/* DASHBOARD CARDS */
+
+.cards {
+
+    display: flex;
+
+    gap: 20px;
+
+    margin: 30px 0;
+}
+
+
+.card {
+
+    flex: 1;
+
+    background: white;
+
+    padding: 25px;
+
+    border-radius: 10px;
+
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+
+.card p {
+
+    font-size: 30px;
+
+    margin-bottom: 0;
+}
+
+
+/* TABLE */
+
+table {
+
+    width: 100%;
+
+    background: white;
+
+    border-collapse: collapse;
+
+    margin-top: 20px;
+}
+
+
+th,
+td {
+
+    padding: 15px;
+
+    text-align: left;
+
+    border-bottom: 1px solid #ddd;
+}
+
+
+th {
+
+    background: #f0f2f5;
+}
+
+
+/* FORM */
+
+form {
+
+    background: white;
+
+    padding: 30px;
+
+    border-radius: 10px;
+}
+
+
+/* =========================
+   RED FLAG ALERT
+   ========================= */
+
+.red-flag-alert {
+
+    background: #fff3cd;
+
+    border: 2px solid #dc3545;
+
+    padding: 20px;
+
+    border-radius: 10px;
+
+    margin-bottom: 20px;
+}
+
+.red-flag-alert h2 {
+
+    color: #dc3545;
+
+    margin-top: 0;
+}
+
+
+.red-flag-message {
+
+    background: #ffe5e5;
+
+    border-left: 5px solid #dc3545;
+
+    padding: 15px;
+
+    border-radius: 8px;
+
+    margin-bottom: 15px;
+
+    max-width: 75%;
+}
+
+.red-flag-message strong {
+
+    color: #dc3545;
+}

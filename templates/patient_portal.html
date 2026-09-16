@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Patient Portal - AarogyaCase AI</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+    <nav>
+
+        <h2>
+            🩺 AarogyaCase AI
+        </h2>
+
+        <span>
+            Patient Portal
+        </span>
+
+    </nav>
+
+
+    <div class="container">
+
+        <div class="card">
+
+            <h1>
+                Welcome, {{ name }} 👋
+            </h1>
+
+            <p>
+                You are logged in as a patient.
+            </p>
+
+        </div>
+
+
+        <div class="cards">
+
+
+            <div class="card">
+
+                <h3>
+                    📋 My Health Information
+                </h3>
+
+                <p>
+                    View and manage your basic
+                    health information.
+                </p>
+
+            </div>
+
+
+            <div class="card">
+
+                <h3>
+                    📅 Appointments
+                </h3>
+
+                <p>
+                    View your upcoming
+                    appointments.
+                </p>
+
+            </div>
+
+
+            <div class="card">
+
+                <h3>
+                    ⏱️ Waiting Queue
+                </h3>
+
+                <p>
+                    Check your estimated
+                    waiting time.
+                </p>
+
+            </div>
+
+
+        </div>
+
+
+        <br>
+
+
+        <div class="card">
+
+            <h2>
+                AI-Assisted Case Taking
+            </h2>
+
+            <p>
+                AarogyaCase AI can collect your
+                initial health information before
+                doctor consultation.
+            </p>
+
+            <button
+                type="button"
+                onclick="alert('AI Case Taking will be started here.')"
+            >
+                🤖 Start AI Case Taking
+            </button>
+
+        </div>
+
+
+        <br>
+
+
+        <a href="/logout">
+
+            <button type="button">
+                🚪 Logout
+            </button>
+
+        </a>
+
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Login - AarogyaCase AI</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+    <div class="login-container">
+
+        <div class="login-card">
+
+            <h1>
+                🩺 AarogyaCase AI
+            </h1>
+
+            <p>
+                AI-Assisted Patient Case Taking System
+            </p>
+
+
+            {% if error %}
+
+            <div class="error-message">
+
+                {{ error }}
+
+            </div>
+
+            {% endif %}
+
+
+            <form
+                method="POST"
+                action="/login"
+            >
+
+
+                <!-- USERNAME -->
+
+                <label>
+                    Username
+                </label>
+
+                <input
+                    type="text"
+                    name="username"
+                    placeholder="Enter username"
+                    required
+                >
+
+
+                <!-- PASSWORD -->
+
+                <label>
+                    Password
+                </label>
+
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Enter password"
+                    required
+                >
+
+
+                <!-- ACCOUNT TYPE -->
+
+                <label>
+                    Login As
+                </label>
+
+                <select
+                    name="role"
+                    required
+                >
+
+                    <option value="">
+                        Select Account Type
+                    </option>
+
+                    <option value="doctor">
+                        👨‍⚕️ Doctor
+                    </option>
+
+                    <option value="patient">
+                        🧑 Patient
+                    </option>
+
+                </select>
+
+
+                <button
+                    type="submit"
+                >
+                    Login
+                </button>
+
+            </form>
+
+
+            <!-- DEMO ACCOUNT INFORMATION -->
+
+            <div class="demo-login">
+
+                <h3>
+                    Demo Accounts
+                </h3>
+
+                <p>
+                    <strong>Doctor:</strong>
+                    doctor / 1234
+                </p>
+
+                <p>
+                    <strong>Doctor 2:</strong>
+                    doctor2 / 1234
+                </p>
+
+                <p>
+                    <strong>Patient:</strong>
+                    patient / 1234
+                </p>
+
+                <p>
+                    <strong>Patient 2:</strong>
+                    patient2 / 1234
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

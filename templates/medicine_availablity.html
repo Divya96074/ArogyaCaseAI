@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Medicine Availability - AarogyaCase AI</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    <style>
+
+        .medicine-page {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .search-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+        }
+
+        .search-card h1 {
+            margin-bottom: 10px;
+        }
+
+        .search-card p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .medicine-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .medicine-form input {
+            flex: 1;
+            padding: 14px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .medicine-form button {
+            padding: 14px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .result-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+
+        .available {
+            color: green;
+            font-weight: bold;
+        }
+
+        .unavailable {
+            color: red;
+            font-weight: bold;
+        }
+
+        .medicine-details {
+            margin-top: 20px;
+        }
+
+        .medicine-details p {
+            padding: 8px 0;
+        }
+
+        .not-found {
+            background: #fff3f3;
+            padding: 20px;
+            border-radius: 10px;
+            color: #c62828;
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-top: 25px;
+            text-decoration: none;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+    <nav>
+
+        <h2>🩺 AarogyaCase AI</h2>
+
+        <span>Medicine Availability</span>
+
+    </nav>
+
+
+    <div class="medicine-page">
+
+        <div class="search-card">
+
+            <h1>💊 Medicine Availability</h1>
+
+            <p>
+                Check whether an Ayurvedic medicine is available
+                at the clinic pharmacy before visiting.
+            </p>
+
+
+            <form
+                method="POST"
+                action="/medicine-availability"
+                class="medicine-form"
+            >
+
+                <input
+                    type="text"
+                    name="medicine_name"
+                    placeholder="Enter medicine name e.g. Ashwagandha"
+                    value="{{ search_term }}"
+                    required
+                >
+
+                <button type="submit">
+                    🔍 Check Availability
+                </button>
+
+            </form>
+
+        </div>
+
+
+        {% if searched %}
+
+            {% if medicine %}
+
+                <div class="result-card">
+
+                    <h2>
+                        {{ medicine["name"] }}
+                    </h2>
+
+                    <div class="medicine-details">
+
+                        <p>
+                            <strong>Category:</strong>
+                            {{ medicine["category"] }}
+                        </p>
+
+
+                        <p>
+
+                            <strong>Status:</strong>
+
+                            {% if medicine["available"] %}
+
+                                <span class="available">
+                                    ✅ Available
+                                </span>
+
+                            {% else %}
+
+                                <span class="unavailable">
+                                    ❌ Not Available
+                                </span>
+
+                            {% endif %}
+
+                        </p>
+
+
+                        <p>
+
+                            <strong>Quantity:</strong>
+
+                            {{ medicine["quantity"] }}
+
+                        </p>
+
+
+                        <p>
+
+                            <strong>Location:</strong>
+
+                            {{ medicine["location"] }}
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+            {% else %}
+
+                <div class="not-found">
+
+                    <h3>
+                        ❌ Medicine Not Found
+                    </h3>
+
+                    <p>
+                        No medicine named
+                        <strong>{{ search_term }}</strong>
+                        was found in the clinic pharmacy.
+                    </p>
+
+                    <p>
+                        Try:
+                        Ashwagandha,
+                        Triphala,
+                        Giloy,
+                        Brahmi,
+                        or Chyawanprash.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        {% endif %}
+
+
+        <a
+            href="/dashboard"
+            class="back-button"
+        >
+
+            <button type="button">
+                ← Back to Dashboard
+            </button>
+
+        </a>
+
+    </div>
+
+</body>
+
+</html>

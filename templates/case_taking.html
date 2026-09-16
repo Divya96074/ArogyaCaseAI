@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI Case Taking - AarogyaCase AI</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    <style>
+
+        .case-actions {
+            margin-top: 30px;
+            padding: 25px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        .case-actions h3 {
+            margin-bottom: 8px;
+        }
+
+        .case-actions p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .summary-button {
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .summary-button button {
+            padding: 13px 22px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .dashboard-button {
+            display: inline-block;
+            margin-top: 15px;
+            text-decoration: none;
+        }
+
+        .dashboard-button button {
+            padding: 11px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <!-- NAVIGATION -->
+
+    <nav>
+
+        <h2>🩺 AarogyaCase AI</h2>
+
+        <span>AI Case Taking</span>
+
+    </nav>
+
+
+    <div class="chat-container">
+
+
+        <!-- PATIENT INFORMATION -->
+
+        <div class="patient-info">
+
+            <h2>Patient Case Taking</h2>
+
+            <p>
+                Patient:
+                <strong>{{ patient["name"] }}</strong>
+            </p>
+
+            <p>
+                Patient ID:
+                <strong>{{ patient["patient_id"] }}</strong>
+            </p>
+
+            <p>
+                Age:
+                <strong>{{ patient["age"] }}</strong>
+            </p>
+
+            <p>
+                Gender:
+                <strong>{{ patient["gender"] }}</strong>
+            </p>
+
+            <p>
+                Patient Type:
+                <strong>{{ patient["patient_type"] }}</strong>
+            </p>
+
+        </div>
+
+
+        <!-- RED FLAG ALERT -->
+
+        {% if red_flags %}
+
+        <div class="red-flag-alert">
+
+            <h2>⚠️ RED FLAG DETECTED</h2>
+
+            {% for flag in red_flags %}
+
+            <p>
+                <strong>{{ flag }}</strong>
+            </p>
+
+            {% endfor %}
+
+            <p>
+                Doctor attention is recommended.
+            </p>
+
+        </div>
+
+        {% endif %}
+
+
+        <!-- CHAT BOX -->
+
+        <div class="chat-box">
+
+
+            {% if messages|length == 0 %}
+
+            <div class="ai-message">
+
+                <strong>🤖 AarogyaCase AI</strong>
+
+                <p>
+                    Hello! I'm AarogyaCase AI.
+                    I'll ask you a few questions to understand
+                    the patient's health problem.
+                </p>
+
+                <p>
+
+                    <strong>
+                        What brings you to the clinic today?
+                    </strong>
+
+                </p>
+
+            </div>
+
+            {% endif %}
+
+
+            {% for message in messages %}
+
+
+                {% if message["role"] == "patient" %}
+
+                <div class="user-message">
+
+                    <p>
+                        {{ message["message"] }}
+                    </p>
+
+                </div>
+
+
+                {% elif message["role"] == "red_flag" %}
+
+                <div class="red-flag-message">
+
+                    <strong>
+                        ⚠️ RED FLAG
+                    </strong>
+
+                    <p>
+                        {{ message["message"] }}
+                    </p>
+
+                </div>
+
+
+                {% else %}
+
+                <div class="ai-message">
+
+                    <strong>
+                        🤖 AarogyaCase AI
+                    </strong>
+
+                    <p>
+                        {{ message["message"] }}
+                    </p>
+
+                </div>
+
+                {% endif %}
+
+
+            {% endfor %}
+
+
+        </div>
+
+
+        <!-- PATIENT RESPONSE -->
+
+        <form
+            class="chat-input"
+            method="POST"
+            action="/case-taking/{{ patient['id'] }}/message"
+        >
+
+            <input
+                type="text"
+                name="message"
+                placeholder="Type patient's response..."
+                autocomplete="off"
+                required
+            >
+
+            <button type="submit">
+                Send
+            </button>
+
+        </form>
+
+
+        <!-- FINISH CASE -->
+
+        <div class="case-actions">
+
+            <h3>📋 Case Completed?</h3>
+
+            <p>
+                Once the patient has answered the required questions,
+                generate a doctor-ready summary.
+            </p>
+
+
+            <a
+                href="/doctor-summary/{{ patient['id'] }}"
+                class="summary-button"
+            >
+
+                <button type="button">
+                    📋 Finish Case & Generate Doctor Summary
+                </button>
+
+            </a>
+
+        </div>
+
+
+        <!-- BACK TO DASHBOARD -->
+
+        <a
+            href="/dashboard"
+            class="dashboard-button"
+        >
+
+            <button type="button">
+                ← Back to Dashboard
+            </button>
+
+        </a>
+
+
+    </div>
+
+
+</body>
+
+</html>

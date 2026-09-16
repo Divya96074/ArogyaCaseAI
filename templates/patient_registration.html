@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Register Patient - AarogyaCase AI</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+<body>
+
+    <nav>
+
+        <h2>🩺 AarogyaCase AI</h2>
+
+        <span>Patient Registration</span>
+
+    </nav>
+
+
+    <div class="form-container">
+
+        <h1>Register New Patient</h1>
+
+        <p>Enter patient details to start AI-assisted case taking.</p>
+
+
+        <form method="POST">
+
+
+            <label>Patient Name</label>
+
+            <input
+                type="text"
+                name="name"
+                placeholder="Enter patient name"
+                required
+            >
+
+
+            <label>Age</label>
+
+            <input
+                type="number"
+                name="age"
+                placeholder="Enter age"
+                min="0"
+                max="120"
+                required
+            >
+
+
+            <label>Gender</label>
+
+            <select name="gender" required>
+
+                <option value="">Select Gender</option>
+
+                <option value="Male">Male</option>
+
+                <option value="Female">Female</option>
+
+                <option value="Other">Other</option>
+
+            </select>
+
+
+            <label>Phone Number</label>
+
+            <input
+                type="text"
+                name="phone"
+                placeholder="Enter phone number"
+            >
+
+
+            <label>Patient Type</label>
+
+            <select name="patient_type" required>
+
+                <option value="">Select Patient Type</option>
+
+                <option value="Adult">Adult</option>
+
+                <option value="Pediatric">Pediatric</option>
+
+                <option value="Toddler">Toddler</option>
+
+            </select>
+
+
+            <button type="submit">
+                Register Patient
+            </button>
+
+
+        </form>
+
+
+        <br>
+
+        <a href="/dashboard">
+
+            <button type="button">
+                ← Back to Dashboard
+            </button>
+
+        </a>
+
+    </div>
+
+</body>
+
+</html>
