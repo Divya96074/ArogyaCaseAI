@@ -1,165 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Appointment & Queue - AarogyaCase AI</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/style.css') }}">
+    <title>Book Appointment - Swasthya Setu</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+<body style="background: #f0fdfa;">
 
-<body>
-
-    <nav>
-        <h2>🩺 AarogyaCase AI</h2>
-        <span>Appointment & Queue Management</span>
+    <!-- TOP NAVBAR -->
+    <nav class="app-navbar">
+        <div class="brand-wrap">
+            <div class="brand-icon">🌐</div>
+            <div>
+                <span class="brand-title">MediKiosk</span>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <a href="/dashboard" class="btn btn-outline btn-sm">← Back to Dashboard</a>
+        </div>
     </nav>
 
+    <!-- FORM WRAPPER -->
+    <div class="main-wrapper" style="max-width: 620px; margin: 36px auto;">
+        <div class="ui-card" style="padding: 32px 28px;">
+            
+            <div style="margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px;">
+                <h1 style="font-size: 24px; font-weight: 700; color: var(--text-dark); margin-top: 4px;">
+                    📅 Book Consultation Token
+                </h1>
+            </div>
 
-    <div class="form-container">
+            <form method="POST" action="/appointment">
 
-        <h1>📅 Book Appointment</h1>
+                <div class="form-group">
+                    <label>Patient Name</label>
+                    <input 
+                        type="text" 
+                        name="patient_name" 
+                        placeholder="Enter patient's full name" 
+                        value="{{ patient['name'] if patient else '' }}" 
+                        required
+                    >
+                </div>
 
-        <p>
-            Schedule a consultation and get your queue position.
-        </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Appointment Date</label>
+                        <input type="date" name="appointment_date" required>
+                    </div>
 
+                    <div class="form-group">
+                        <label>Preferred Time Slot</label>
+                        <select name="appointment_time" required>
+                            <option value="">Select Time Slot</option>
+                            <option value="10:00 AM">10:00 AM</option>
+                            <option value="11:00 AM">11:00 AM</option>
+                            <option value="12:00 PM">12:00 PM</option>
+                            <option value="02:00 PM">02:00 PM</option>
+                            <option value="03:00 PM">03:00 PM</option>
+                            <option value="04:00 PM">04:00 PM</option>
+                        </select>
+                    </div>
+                </div>
 
-        <form method="POST"
-              action="/appointment">
+                <div class="form-group">
+                    <label>Consultation Type</label>
+                    <select name="consultation_type" required>
+                        <option value="General Consultation">General Consultation</option>
+                        <option value="Ayurvedic Consultation">Ayurvedic Consultation</option>
+                        <option value="Follow-up">Follow-up Consultation</option>
+                    </select>
+                </div>
 
-            <label>Patient Name</label>
+                <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
+                    <button type="submit" class="btn btn-teal btn-full" style="padding: 14px; font-size: 15px;">
+                        📅 Confirm Token & Join Queue →
+                    </button>
+                    <a href="/dashboard" class="btn btn-outline btn-full" style="text-align: center;">
+                        Cancel & Return
+                    </a>
+                </div>
 
-            <input
-                type="text"
-                name="patient_name"
-                value="{{ patient['name'] if patient else '' }}"
-                placeholder="Enter patient name"
-                required
-            >
+            </form>
 
+            <!-- CONFIRMATION SUMMARY CARD -->
+            {% if appointment %}
+            <div style="margin-top: 28px; border-top: 2px dashed var(--border-color); padding-top: 20px;">
+                <div style="background: var(--teal-light); border: 1px solid #99f6e4; border-radius: var(--radius-md); padding: 18px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span class="badge-tag badge-success">✅ Token Confirmed</span>
+                        <strong style="color: var(--teal-brand); font-size: 18px;">Queue #{{ appointment.queue_number }}</strong>
+                    </div>
 
-            <label>Appointment Date</label>
-
-            <input
-                type="date"
-                name="appointment_date"
-                required
-            >
-
-
-            <label>Preferred Time</label>
-
-            <select name="appointment_time" required>
-
-                <option value="">Select Time</option>
-
-                <option value="10:00 AM">10:00 AM</option>
-                <option value="11:00 AM">11:00 AM</option>
-                <option value="12:00 PM">12:00 PM</option>
-                <option value="02:00 PM">02:00 PM</option>
-                <option value="03:00 PM">03:00 PM</option>
-                <option value="04:00 PM">04:00 PM</option>
-
-            </select>
-
-
-            <label>Consultation Type</label>
-
-            <select name="consultation_type" required>
-
-                <option value="">Select Type</option>
-
-                <option value="General Consultation">
-                    General Consultation
-                </option>
-
-                <option value="Ayurvedic Consultation">
-                    Ayurvedic Consultation
-                </option>
-
-                <option value="Follow-up">
-                    Follow-up
-                </option>
-
-            </select>
-
-
-            <button type="submit">
-                📅 Book Appointment
-            </button>
-
-        </form>
-
-
-        {% if appointment %}
-
-        <div class="summary-card">
-
-            <h2>✅ Appointment Confirmed</h2>
-
-            <p>
-                <strong>Patient:</strong>
-                {{ appointment.patient_name }}
-            </p>
-
-            <p>
-                <strong>Date:</strong>
-                {{ appointment.appointment_date }}
-            </p>
-
-            <p>
-                <strong>Time:</strong>
-                {{ appointment.appointment_time }}
-            </p>
-
-            <p>
-                <strong>Consultation:</strong>
-                {{ appointment.consultation_type }}
-            </p>
-
-
-            <hr>
-
-
-            <h2>🎫 Queue Details</h2>
-
-            <p>
-                <strong>Queue Number:</strong>
-                #{{ appointment.queue_number }}
-            </p>
-
-            <p>
-                <strong>Estimated Waiting Time:</strong>
-                {{ appointment.waiting_time }} minutes
-            </p>
-
-            <p>
-                <strong>Status:</strong>
-                🟡 Waiting
-            </p>
+                    <p style="font-size: 14px; margin-bottom: 4px;">
+                        <strong>Patient:</strong> {{ appointment.patient_name }}
+                    </p>
+                    <p style="font-size: 14px; margin-bottom: 4px;">
+                        <strong>Date & Time:</strong> {{ appointment.appointment_date }} at {{ appointment.appointment_time }}
+                    </p>
+                    <p style="font-size: 14px; margin-bottom: 4px;">
+                        <strong>Type:</strong> {{ appointment.consultation_type }}
+                    </p>
+                    <p style="font-size: 14px; color: var(--text-dark); margin-top: 8px;">
+                        ⏱️ <strong>Estimated Waiting Time:</strong> ~{{ appointment.waiting_time }} minutes
+                    </p>
+                </div>
+            </div>
+            {% endif %}
 
         </div>
-
-        {% endif %}
-
-
-        <br>
-
-
-        <a href="/dashboard">
-
-            <button type="button">
-                ← Back to Dashboard
-            </button>
-
-        </a>
-
     </div>
 
 </body>
-
 </html>

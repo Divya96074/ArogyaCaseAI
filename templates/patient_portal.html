@@ -1,141 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Portal - Swasthya Setu</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .patient-box {
+            max-width: 440px;
+            margin: 40px auto;
+            background: #ffffff;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+            padding: 32px 24px;
+            text-align: center;
+        }
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+        .welcome-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
 
-    <title>Patient Portal - AarogyaCase AI</title>
+        .welcome-sub {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 28px;
+        }
 
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
 
+        .action-link-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+
+        .btn-book {
+            background: #0d9488;
+            color: #ffffff;
+        }
+
+        .btn-book:hover {
+            background: #0f766e;
+            transform: translateY(-1px);
+        }
+
+        .btn-medicine {
+            background: #ffffff;
+            color: #0f172a;
+            border: 2px solid #e2e8f0;
+        }
+
+        .btn-medicine:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+        }
+    </style>
 </head>
+<body style="background: #f0fdfa;">
 
-
-<body>
-
-    <nav>
-
-        <h2>
-            🩺 AarogyaCase AI
-        </h2>
-
-        <span>
-            Patient Portal
-        </span>
-
+    <nav class="app-navbar">
+        <div class="brand-wrap">
+            <div class="brand-icon">🌐</div>
+            <div>
+                <span class="brand-title">Swasthya • Setu</span>
+                <span class="brand-subtitle">Connected Care Platform</span>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <a href="/logout" class="btn btn-outline btn-sm">Sign Out</a>
+        </div>
     </nav>
 
+    <div class="patient-box">
+        <h1 class="welcome-title">Patient ID: {{ name }} 👋</h1>
+        <p class="welcome-sub">What would you like to do today?</p>
 
-    <div class="container">
+        <div class="action-group">
+            <a href="/appointment" class="action-link-btn btn-book">
+                📅 Book Appointment
+            </a>
 
-        <div class="card">
-
-            <h1>
-                Welcome, {{ name }} 👋
-            </h1>
-
-            <p>
-                You are logged in as a patient.
-            </p>
-
+            <a href="/medicine-availability" class="action-link-btn btn-medicine">
+                💊 Search Medicine
+            </a>
         </div>
-
-
-        <div class="cards">
-
-
-            <div class="card">
-
-                <h3>
-                    📋 My Health Information
-                </h3>
-
-                <p>
-                    View and manage your basic
-                    health information.
-                </p>
-
-            </div>
-
-
-            <div class="card">
-
-                <h3>
-                    📅 Appointments
-                </h3>
-
-                <p>
-                    View your upcoming
-                    appointments.
-                </p>
-
-            </div>
-
-
-            <div class="card">
-
-                <h3>
-                    ⏱️ Waiting Queue
-                </h3>
-
-                <p>
-                    Check your estimated
-                    waiting time.
-                </p>
-
-            </div>
-
-
-        </div>
-
-
-        <br>
-
-
-        <div class="card">
-
-            <h2>
-                AI-Assisted Case Taking
-            </h2>
-
-            <p>
-                AarogyaCase AI can collect your
-                initial health information before
-                doctor consultation.
-            </p>
-
-            <button
-                type="button"
-                onclick="alert('AI Case Taking will be started here.')"
-            >
-                🤖 Start AI Case Taking
-            </button>
-
-        </div>
-
-
-        <br>
-
-
-        <a href="/logout">
-
-            <button type="button">
-                🚪 Logout
-            </button>
-
-        </a>
-
     </div>
 
 </body>
-
 </html>

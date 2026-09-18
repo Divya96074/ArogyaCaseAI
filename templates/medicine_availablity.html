@@ -1,257 +1,1972 @@
+Conversation with Gemini
+Here is an overview of the key issues and bugs present across your files:
+
+Critical Bugs & Logic Issues
+Duplicate dashboard() Function Body (app.py):
+Inside @app.route("/dashboard"), the data retrieval logic (fetching patients, calculating appointments, counting waiting_count, and returning render_template) is repeated twice back-to-back. The second block will never execute because of the return statement right above it.  
+PY
++ 1
+
+Hardcoded Secret Key Overwrite (app.py):
+Lines 21–23 read SECRET_KEY from the environment, but line 23 immediately overwrites it with "aarogya_caseai_secret_key", neutralizing the secure environment variable fallback.  
+PY
+
+Repeated Comments and Section Dividers (app.py):
+Section blocks like # HOME / LOGIN and # MEDICINE AVAILABILITY are duplicated multiple times.  
+PY
+
+Hardcoded Sequential Logic in Doctor Summary (app.py):
+The doctor_summary route maps patient_messages[0], patient_messages[1], etc., directly to static fields (complaint, duration, symptoms, etc.). If an emergency flag triggers or a user responds non-linearly, these answers will map to the wrong summary categories.  
+PY
++ 1
+
+Bare except: Blocks (app.py):
+Database and parsing operations use naked except: statements (e.g., patient ID calculation and appointment retrieval), masking runtime errors and database corruptions.  
+PY
+
+Cleaned & Refactored app.py
+Replace your existing app.py with this cleaned version:
+
+Python
+import os
+import sqlite3
+from flask import Flask, render_template, request, redirect, url_for, session
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static")
+)
+
+# Use environment key if available, fallback to development default
+app.secret_key = os.environ.get("SECRET_KEY", "aarogya_caseai_secret_key")
+DATABASE = os.path.join(BASE_DIR, "database.db")
+
+
+# ============================================================
+# DATABASE SETUP
+# ============================================================
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS patients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id TEXT,
+            name TEXT NOT NULL,
+            age INTEGER,
+            gender TEXT,
+            patient_type TEXT,
+            phone TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id INTEGER,
+            role TEXT,
+            message TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS appointments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_name TEXT NOT NULL,
+            appointment_date TEXT NOT NULL,
+            appointment_time TEXT NOT NULL,
+            consultation_type TEXT NOT NULL,
+            queue_number INTEGER NOT NULL,
+            waiting_time INTEGER NOT NULL,
+            status TEXT DEFAULT 'Waiting'
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+# ============================================================
+# AUTHENTICATION
+# ============================================================
+
+USERS = {
+    "doctor": {"password": "1234", "role": "doctor", "name": "Dr. Demo"},
+    "doctor2": {"password": "1234", "role": "doctor", "name": "Dr. Sharma"},
+    "doctor3": {"password": "1234", "role": "doctor", "name": "Dr. Verma"},
+    "patient": {"password": "1234", "role": "patient", "name": "Demo Patient"},
+    "patient2": {"password": "1234", "role": "patient", "name": "Rahul Kumar"},
+    "patient3": {"password": "1234", "role": "patient", "name": "Priya Sharma"}
+}
+
+
+@app.route("/")
+def home():
+    return render_template("login.html")
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    role = request.form.get("role", "").strip().lower()
+
+    user = USERS.get(username)
+    if user and password == user["password"] and role == user["role"]:
+        session.clear()
+        session["user"] = username
+        session["role"] = user["role"]
+        session["name"] = user["name"]
+
+        if user["role"] == "doctor":
+            return redirect(url_for("dashboard"))
+        elif user["role"] == "patient":
+            return redirect(url_for("patient_portal"))
+
+    return render_template(
+        "login.html",
+        error="Invalid username, password, or account type."
+    )
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+
+# ============================================================
+# PORTALS & DASHBOARD
+# ============================================================
+
+@app.route("/patient-portal")
+def patient_portal():
+    if "user" not in session:
+        return redirect(url_for("home"))
+    if session.get("role") != "patient":
+        return redirect(url_for("dashboard"))
+
+    return render_template(
+        "patient_portal.html",
+        name=session.get("name", "Patient"),
+        username=session.get("user")
+    )
+
+
+@app.route("/dashboard")
+def dashboard():
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    patients = conn.execute("SELECT * FROM patients ORDER BY id DESC").fetchall()
+
+    appointments = []
+    try:
+        appointment_rows = conn.execute("SELECT * FROM appointments ORDER BY id ASC").fetchall()
+        for idx, row in enumerate(appointment_rows):
+            row_data = dict(row)
+            patient_name = row_data.get("patient_name") or "Unknown Patient"
+            queue_number = idx + 1
+            waiting_time = queue_number * 10
+
+            appointments.append({
+                "queue_number": queue_number,
+                "patient_name": patient_name,
+                "appointment_date": row_data.get("appointment_date", "Not specified"),
+                "appointment_time": row_data.get("appointment_time", "Not specified"),
+                "consultation_type": row_data.get("consultation_type", "General Consultation"),
+                "status": row_data.get("status", "Waiting"),
+                "waiting_time": waiting_time
+            })
+    except sqlite3.OperationalError:
+        appointments = []
+
+    waiting_count = sum(
+        1 for appt in appointments
+        if str(appt["status"]).lower() in ["waiting", "pending", "confirmed", "booked"]
+    )
+
+    conn.close()
+    return render_template(
+        "dashboard.html",
+        patients=patients,
+        appointments=appointments,
+        appointment_count=len(appointments),
+        waiting_count=waiting_count
+    )
+
+
+# ============================================================
+# CLINICAL ACTIONS & REGISTRATION
+# ============================================================
+
+@app.route("/patient-registration", methods=["GET", "POST"])
+def patient_registration():
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        name = request.form.get("name")
+        age = request.form.get("age")
+        gender = request.form.get("gender")
+        patient_type = request.form.get("patient_type")
+        phone = request.form.get("phone")
+
+        conn = get_db()
+        last_patient = conn.execute(
+            "SELECT patient_id FROM patients WHERE patient_id IS NOT NULL ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+
+        patient_number = 1
+        if last_patient and last_patient["patient_id"]:
+            try:
+                patient_number = int(last_patient["patient_id"].split("-")[-1]) + 1
+            except (ValueError, IndexError):
+                patient_number = 1
+
+        new_patient_id = f"AYU-{patient_number:05d}"
+
+        cursor = conn.execute("""
+            INSERT INTO patients (patient_id, name, age, gender, patient_type, phone)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (new_patient_id, name, age, gender, patient_type, phone))
+
+        database_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for("case_taking", patient_id=database_id))
+
+    return render_template("patient_registration.html")
+
+
+@app.route("/case-taking/<int:patient_id>")
+def case_taking(patient_id):
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    patient = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    conversations = conn.execute(
+        "SELECT * FROM conversations WHERE patient_id = ? ORDER BY id", (patient_id,)
+    ).fetchall()
+    conn.close()
+
+    if not patient:
+        return "Patient not found", 404
+
+    red_flags = [c["message"] for c in conversations if c["role"] == "red_flag"]
+
+    return render_template(
+        "case_taking.html",
+        patient=patient,
+        conversations=conversations,
+        messages=conversations,
+        red_flags=red_flags
+    )
+
+
+@app.route("/case-taking/<int:patient_id>/message", methods=["POST"])
+def case_taking_message(patient_id):
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    message = request.form.get("message", "").strip()
+    if not message:
+        return redirect(url_for("case_taking", patient_id=patient_id))
+
+    conn = get_db()
+    patient = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    if not patient:
+        conn.close()
+        return "Patient not found", 404
+
+    conn.execute(
+        "INSERT INTO conversations (patient_id, role, message) VALUES (?, ?, ?)",
+        (patient_id, "patient", message)
+    )
+
+    lower_message = message.lower()
+    red_flag_keywords = [
+        "difficulty breathing", "trouble breathing", "can't breathe",
+        "cannot breathe", "chest pain", "unconscious", "unresponsive",
+        "seizure", "convulsion", "severe bleeding", "heavy bleeding"
+    ]
+
+    detected_flag = next((k for k in red_flag_keywords if k in lower_message), None)
+
+    if detected_flag:
+        warning = f"⚠️ RED FLAG DETECTED: {detected_flag}. Immediate medical attention is recommended."
+        conn.execute(
+            "INSERT INTO conversations (patient_id, role, message) VALUES (?, 'red_flag', ?)",
+            (patient_id, warning)
+        )
+        conn.execute(
+            "INSERT INTO conversations (patient_id, role, message) VALUES (?, 'assistant', 'Please inform the doctor immediately.')",
+            (patient_id,)
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for("case_taking", patient_id=patient_id))
+
+    patient_messages = conn.execute(
+        "SELECT * FROM conversations WHERE patient_id = ? AND role = 'patient'", (patient_id,)
+    ).fetchall()
+    count = len(patient_messages)
+
+    if patient["patient_type"] in ["Pediatric", "Toddler"]:
+        questions = {
+            1: "How long has the problem been present, and what was the highest temperature if there is fever?",
+            2: "How is the child's appetite, sleep, activity level, or behaviour compared with normal?",
+            3: "Are the child's vaccinations up to date? Does the child have any known allergies or medical conditions?",
+            4: "Is the child currently taking any medicines, supplements, or other treatments?"
+        }
+        fallback = "Thank you. The pediatric case history is now ready for doctor review."
+    else:
+        questions = {
+            1: "How long have you been experiencing this problem?",
+            2: "Are you experiencing any other symptoms along with this problem?",
+            3: "Do you have any previous medical conditions, allergies, or significant medical history?",
+            4: "Are you currently taking any medicines or supplements?"
+        }
+        fallback = "Thank you. Your case history is now ready for doctor review."
+
+    next_question = questions.get(count, fallback)
+
+    conn.execute(
+        "INSERT INTO conversations (patient_id, role, message) VALUES (?, 'assistant', ?)",
+        (patient_id, next_question)
+    )
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("case_taking", patient_id=patient_id))
+
+
+@app.route("/doctor-summary/<int:patient_id>")
+def doctor_summary(patient_id):
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    patient = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    conversations = conn.execute(
+        "SELECT * FROM conversations WHERE patient_id = ? ORDER BY id", (patient_id,)
+    ).fetchall()
+    conn.close()
+
+    if not patient:
+        return "Patient not found", 404
+
+    patient_messages = [c["message"] for c in conversations if c["role"] == "patient"]
+    red_flags = [c["message"] for c in conversations if c["role"] == "red_flag"]
+
+    def get_msg(idx):
+        return patient_messages[idx] if len(patient_messages) > idx else "Not provided"
+
+    return render_template(
+        "doctor_summary.html",
+        patient=patient,
+        chief_complaint=get_msg(0),
+        duration=get_msg(1),
+        associated_symptoms=get_msg(2),
+        medical_history=get_msg(3),
+        medicines=get_msg(4),
+        red_flags=red_flags
+    )
+
+
+# ============================================================
+# DOCUMENTS, INVENTORY & APPOINTMENTS
+# ============================================================
+
+@app.route("/document-extraction", methods=["GET", "POST"])
+def document_extraction():
+    extracted_text = None
+
+    if request.method == "POST":
+        document = request.files.get("document")
+        if document and document.filename:
+            filename = document.filename.lower()
+            if filename.endswith(".txt"):
+                try:
+                    extracted_text = document.read().decode("utf-8", errors="ignore")
+                except Exception:
+                    extracted_text = "Unable to read the text document."
+            elif filename.endswith(".pdf"):
+                try:
+                    import PyPDF2
+                    reader = PyPDF2.PdfReader(document)
+                    pages = [page.extract_text() for page in reader.pages if page.extract_text()]
+                    extracted_text = "\n\n".join(pages) or "The PDF was uploaded successfully, but no readable text was found."
+                except ImportError:
+                    extracted_text = "PDF reader is not installed. Run: pip install PyPDF2"
+                except Exception as e:
+                    extracted_text = f"Unable to extract text from this PDF.\n\n{e}"
+            else:
+                extracted_text = "Unsupported file format. Please upload a PDF or TXT file."
+
+    return render_template("document_extraction.html", extracted_text=extracted_text)
+
+
+@app.route("/medicine-availability", methods=["GET", "POST"])
+def medicine_availability():
+    medicine = None
+    searched = False
+    search_term = ""
+
+    inventory = [
+        {"name": "Ashwagandha", "category": "Ayurvedic Medicine", "available": True, "quantity": 25, "location": "Ayurvedic Pharmacy - Counter 1"},
+        {"name": "Triphala", "category": "Ayurvedic Medicine", "available": True, "quantity": 18, "location": "Ayurvedic Pharmacy - Counter 1"},
+        {"name": "Giloy", "category": "Ayurvedic Medicine", "available": True, "quantity": 12, "location": "Ayurvedic Pharmacy - Counter 2"},
+        {"name": "Brahmi", "category": "Ayurvedic Medicine", "available": True, "quantity": 15, "location": "Ayurvedic Pharmacy - Counter 2"},
+        {"name": "Chyawanprash", "category": "Ayurvedic Supplement", "available": True, "quantity": 30, "location": "Ayurvedic Pharmacy - Counter 2"},
+        {"name": "Tulsi", "category": "Ayurvedic Medicine", "available": True, "quantity": 20, "location": "Ayurvedic Pharmacy - Counter 1"},
+        {"name": "Neem", "category": "Ayurvedic Medicine", "available": True, "quantity": 14, "location": "Ayurvedic Pharmacy - Counter 1"},
+        {"name": "Turmeric", "category": "Ayurvedic Medicine", "available": True, "quantity": 22, "location": "Ayurvedic Pharmacy - Counter 2"},
+        {"name": "Arjuna", "category": "Ayurvedic Medicine", "available": False, "quantity": 0, "location": "Currently unavailable"},
+        {"name": "Amla", "category": "Ayurvedic Medicine", "available": True, "quantity": 17, "location": "Ayurvedic Pharmacy - Counter 1"},
+        {"name": "Paracetamol", "category": "Allopathic / OTC", "available": True, "quantity": 50, "location": "General Pharmacy - Counter 1"},
+        {"name": "Ibuprofen", "category": "Allopathic / OTC", "available": True, "quantity": 35, "location": "General Pharmacy - Counter 1"},
+        {"name": "Cetirizine", "category": "Allopathic / OTC", "available": True, "quantity": 40, "location": "General Pharmacy - Counter 1"},
+        {"name": "ORS", "category": "Oral Rehydration", "available": True, "quantity": 60, "location": "General Pharmacy - Counter 1"},
+        {"name": "Antacid", "category": "Allopathic / OTC", "available": True, "quantity": 30, "location": "General Pharmacy - Counter 1"},
+        {"name": "Calcium", "category": "Supplement", "available": True, "quantity": 25, "location": "General Pharmacy - Counter 2"},
+        {"name": "Vitamin C", "category": "Vitamin Supplement", "available": True, "quantity": 32, "location": "General Pharmacy - Counter 2"},
+        {"name": "Vitamin D3", "category": "Vitamin Supplement", "available": True, "quantity": 28, "location": "General Pharmacy - Counter 2"},
+        {"name": "Omeprazole", "category": "Gastrointestinal Medicine", "available": True, "quantity": 24, "location": "General Pharmacy - Counter 2"},
+        {"name": "Pantoprazole", "category": "Gastrointestinal Medicine", "available": True, "quantity": 20, "location": "General Pharmacy - Counter 2"},
+        {"name": "Metformin", "category": "Diabetes Medicine", "available": True, "quantity": 18, "location": "General Pharmacy - Counter 3"},
+        {"name": "Amlodipine", "category": "Blood Pressure Medicine", "available": True, "quantity": 16, "location": "General Pharmacy - Counter 3"},
+        {"name": "Atorvastatin", "category": "Cholesterol Medicine", "available": True, "quantity": 14, "location": "General Pharmacy - Counter 3"},
+        {"name": "Levothyroxine", "category": "Thyroid Medicine", "available": True, "quantity": 12, "location": "General Pharmacy - Counter 3"},
+        {"name": "Amoxicillin", "category": "Antibiotic", "available": True, "quantity": 10, "location": "General Pharmacy - Counter 3"},
+        {"name": "Azithromycin", "category": "Antibiotic", "available": True, "quantity": 8, "location": "General Pharmacy - Counter 3"},
+        {"name": "Diclofenac", "category": "Pain Relief Medicine", "available": True, "quantity": 15, "location": "General Pharmacy - Counter 1"},
+        {"name": "Montelukast", "category": "Allergy / Respiratory Medicine", "available": True, "quantity": 13, "location": "General Pharmacy - Counter 2"},
+        {"name": "Salbutamol", "category": "Respiratory Medicine", "available": True, "quantity": 9, "location": "General Pharmacy - Counter 2"},
+        {"name": "Loratadine", "category": "Anti-Allergy Medicine", "available": True, "quantity": 21, "location": "General Pharmacy - Counter 1"},
+        {"name": "Domperidone", "category": "Gastrointestinal Medicine", "available": False, "quantity": 0, "location": "Currently unavailable"},
+        {"name": "Ondansetron", "category": "Anti-Nausea Medicine", "available": True, "quantity": 11, "location": "General Pharmacy - Counter 2"}
+    ]
+
+    if request.method == "POST":
+        searched = True
+        search_term = request.form.get("medicine_name", "").strip()
+        medicine = next((item for item in inventory if search_term.lower() in item["name"].lower()), None)
+
+    return render_template(
+        "medicine_availability.html",
+        medicine=medicine,
+        searched=searched,
+        search_term=search_term
+    )
+
+
+@app.route("/appointment", methods=["GET", "POST"])
+def appointment():
+    conn = get_db()
+    appointment_data = None
+
+    if request.method == "POST":
+        patient_name = request.form.get("patient_name")
+        appointment_date = request.form.get("appointment_date")
+        appointment_time = request.form.get("appointment_time")
+        consultation_type = request.form.get("consultation_type")
+
+        count_row = conn.execute(
+            "SELECT COUNT(*) FROM appointments WHERE appointment_date = ?",
+            (appointment_date,)
+        ).fetchone()
+        queue_number = (count_row[0] if count_row else 0) + 1
+        waiting_time = (queue_number - 1) * 15
+
+        conn.execute("""
+            INSERT INTO appointments (
+                patient_name, appointment_date, appointment_time,
+                consultation_type, queue_number, waiting_time, status
+            ) VALUES (?, ?, ?, ?, ?, ?, 'Waiting')
+        """, (patient_name, appointment_date, appointment_time, consultation_type, queue_number, waiting_time))
+        conn.commit()
+
+        appointment_data = {
+            "patient_name": patient_name,
+            "appointment_date": appointment_date,
+            "appointment_time": appointment_time,
+            "consultation_type": consultation_type,
+            "queue_number": queue_number,
+            "waiting_time": waiting_time
+        }
+
+    conn.close()
+    return render_template("appointment.html", patient=None, appointment=appointment_data)
+
+
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True)
+Would you like help migrating the mock static inventory into SQLite or connecting the case-taking flow to an LLM API?
+
+this is my sih project i want you to modify it with multilingual feature and voice i want you to give me whole code at once so that i can copy paste it
+
+Here is the complete codebase updated with multilingual support (English, Hindi, and Bengali) and two-way voice features (Speech-to-Text via the Web Speech API and Text-to-Speech audio readout for AI questions and clinical alerts).
+
+app.py
+Python
+import os
+import sqlite3
+from flask import Flask, render_template, request, redirect, url_for, session
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static")
+)
+
+app.secret_key = os.environ.get("SECRET_KEY", "aarogya_caseai_secret_key")
+DATABASE = os.path.join(BASE_DIR, "database.db")
+
+
+# ============================================================
+# MULTILINGUAL DICTIONARY
+# ============================================================
+
+TRANSLATIONS = {
+    "en": {
+        "welcome": "Hello! I am AarogyaCase AI. I will ask you a few questions to understand your health concern.",
+        "initial_q": "What brings you to the clinic today?",
+        "adult_q1": "How long have you been experiencing this problem?",
+        "adult_q2": "Are you experiencing any other symptoms along with this problem?",
+        "adult_q3": "Do you have any previous medical conditions, allergies, or significant medical history?",
+        "adult_q4": "Are you currently taking any medicines or supplements?",
+        "adult_done": "Thank you. Your case history is now ready for doctor review.",
+        "pedia_q1": "How long has the problem been present, and what was the highest temperature if there is fever?",
+        "pedia_q2": "How is the child's appetite, sleep, activity level, or behaviour compared with normal?",
+        "pedia_q3": "Are the child's vaccinations up to date? Does the child have any known allergies or medical conditions?",
+        "pedia_q4": "Is the child currently taking any medicines, supplements, or other treatments?",
+        "pedia_done": "Thank you. The pediatric case history is now ready for doctor review.",
+        "red_flag_alert": "⚠️ RED FLAG DETECTED: {flag}. Immediate medical attention is recommended.",
+        "doctor_notify": "Please inform the doctor immediately."
+    },
+    "hi": {
+        "welcome": "नमस्ते! मैं आरोग्यकेस एआई हूँ। आपकी स्वास्थ्य समस्या को समझने के लिए मैं आपसे कुछ सवाल पूछूँगा।",
+        "initial_q": "आज आप क्लिनिक में किस समस्या के लिए आए हैं?",
+        "adult_q1": "आप इस समस्या का सामना कितने समय से कर रहे हैं?",
+        "adult_q2": "क्या आपको इस समस्या के साथ कोई अन्य लक्षण भी महसूस हो रहे हैं?",
+        "adult_q3": "क्या आपकी कोई पुरानी बीमारी, एलर्जी या कोई अन्य मेडिकल हिस्ट्री है?",
+        "adult_q4": "क्या आप वर्तमान में कोई दवाइयां या सप्लीमेंट्स ले रहे हैं?",
+        "adult_done": "धन्यवाद। आपका केस विवरण डॉक्टर की समीक्षा के लिए तैयार है।",
+        "pedia_q1": "बच्चे को यह समस्या कितने समय से है, और यदि बुखार है तो अधिकतम तापमान कितना था?",
+        "pedia_q2": "सामान्य दिनों की तुलना में बच्चे की भूख, नींद, गतिविधि या व्यवहार में क्या बदलाव है?",
+        "pedia_q3": "क्या बच्चे के सभी टीके लग चुके हैं? क्या कोई एलर्जी या पुरानी बीमारी है?",
+        "pedia_q4": "क्या बच्चा वर्तमान में कोई दवाई या सप्लीमेंट ले रहा है?",
+        "pedia_done": "धन्यवाद। बच्चे का केस विवरण डॉक्टर की समीक्षा के लिए तैयार है।",
+        "red_flag_alert": "⚠️ आपातकालीन चेतावनी: {flag}। तुरंत डॉक्टर से संपर्क करने की सलाह दी जाती है।",
+        "doctor_notify": "कृपया तुरंत डॉक्टर को सूचित करें।"
+    },
+    "bn": {
+        "welcome": "নমস্কার! আমি আরোগ্যকেস এআই। আপনার স্বাস্থ্য সমস্যা বোঝার জন্য আপনাকে কিছু প্রশ্ন জিজ্ঞাসা করব।",
+        "initial_q": "আজ আপনি কী সমস্যার জন্য ক্লিনিকে এসেছেন?",
+        "adult_q1": "আপনি কত দিন ধরে এই সমস্যা অনুভব করছেন?",
+        "adult_q2": "এই সমস্যার সাথে আপনার কি অন্য কোনো লক্ষণ দেখা যাচ্ছে?",
+        "adult_q3": "আপনার কি আগে থেকে কোনো রোগ, অ্যালার্জি বা উল্লেখযোগ্য চিকিৎসার ইতিহাস আছে?",
+        "adult_q4": "আপনি কি বর্তমানে কোনো ওষুধ বা সাপ্লিমেন্ট নিচ্ছেন?",
+        "adult_done": "ধন্যবাদ। আপনার কেস হিস্ট্রি ডাক্তারের পর্যালোচনার জন্য প্রস্তুত।",
+        "pedia_q1": "শিশুর এই সমস্যা কত দিন ধরে এবং জ্বর থাকলে সর্বোচ্চ তাপমাত্রা কত ছিল?",
+        "pedia_q2": "স্বাভাবিকের তুলনায় শিশুর ক্ষুধা, ঘুম, খেলাধূলা বা আচরণে কোনো পরিবর্তন আছে কি?",
+        "pedia_q3": "শিশুর সব টিকা কি দেওয়া হয়েছে? কোনো জানা অ্যালার্জি বা শারীরিক সমস্যা আছে কি?",
+        "pedia_q4": "শিশু কি বর্তমানে কোনো ওষুধ বা চিকিৎসার মধ্যে রয়েছে?",
+        "pedia_done": "ধন্যবাদ। শিশুর কেস বিবরণ ডাক্তারের পর্যালোচনার জন্য প্রস্তুত।",
+        "red_flag_alert": "⚠️ জরুরি সতর্কতা: {flag}। অবিলম্বে ডাক্তারের সাথে যোগাযোগ করার পরামর্শ দেওয়া হচ্ছে।",
+        "doctor_notify": "অনুগ্রহ করে সাথে সাথে ডাক্তারকে জানান।"
+    }
+}
+
+RED_FLAGS = {
+    "difficulty breathing": "Difficulty Breathing / শ্বাসকষ্ট / सांस लेने में तकलीफ",
+    "trouble breathing": "Trouble Breathing / सांस लेने में कठिनाई",
+    "can't breathe": "Cannot Breathe",
+    "cannot breathe": "Cannot Breathe",
+    "chest pain": "Chest Pain / বুকে ব্যথা / सीने में दर्द",
+    "unconscious": "Loss of Consciousness / बेहोशी / অজ্ঞান",
+    "unresponsive": "Unresponsive State",
+    "seizure": "Seizure / दौरा / খিঁচুনি",
+    "convulsion": "Convulsion",
+    "severe bleeding": "Severe Bleeding / अत्यधिक रक्तस्राव / অতিরিক্ত রক্তক্ষরণ",
+    "heavy bleeding": "Heavy Bleeding",
+    "सांस लेने में दिक्कत": "Difficulty Breathing",
+    "सीने में दर्द": "Chest Pain",
+    "बेहोश": "Loss of Consciousness",
+    "खून": "Bleeding",
+    "শ্বাসকষ্ট": "Difficulty Breathing",
+    "বুকে ব্যথা": "Chest Pain"
+}
+
+
+# ============================================================
+# DATABASE SETUP
+# ============================================================
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS patients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id TEXT UNIQUE,
+            name TEXT NOT NULL,
+            age INTEGER,
+            gender TEXT,
+            patient_type TEXT,
+            phone TEXT,
+            preferred_lang TEXT DEFAULT 'en'
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id INTEGER,
+            role TEXT,
+            message TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS appointments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_name TEXT NOT NULL,
+            appointment_date TEXT NOT NULL,
+            appointment_time TEXT NOT NULL,
+            consultation_type TEXT NOT NULL,
+            queue_number INTEGER NOT NULL,
+            waiting_time INTEGER NOT NULL,
+            status TEXT DEFAULT 'Waiting'
+        )
+    """)
+    # Migration guard: ensure preferred_lang column exists if database already initialized
+    cursor = conn.execute("PRAGMA table_info(patients)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if "preferred_lang" not in columns:
+        conn.execute("ALTER TABLE patients ADD COLUMN preferred_lang TEXT DEFAULT 'en'")
+
+    conn.commit()
+    conn.close()
+
+
+# ============================================================
+# AUTHENTICATION
+# ============================================================
+
+USERS = {
+    "doctor": {"password": "1234", "role": "doctor", "name": "Dr. Demo"},
+    "doctor2": {"password": "1234", "role": "doctor", "name": "Dr. Sharma"},
+    "patient": {"password": "1234", "role": "patient", "name": "Demo Patient"},
+    "patient2": {"password": "1234", "role": "patient", "name": "Rahul Kumar"}
+}
+
+
+@app.route("/")
+def home():
+    return render_template("login.html")
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    role = request.form.get("role", "").strip().lower()
+
+    user = USERS.get(username)
+    if user and password == user["password"] and role == user["role"]:
+        session.clear()
+        session["user"] = username
+        session["role"] = user["role"]
+        session["name"] = user["name"]
+
+        if user["role"] == "doctor":
+            return redirect(url_for("dashboard"))
+        elif user["role"] == "patient":
+            return redirect(url_for("patient_portal"))
+
+    return render_template("login.html", error="Invalid username, password, or account type.")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+
+# ============================================================
+# DASHBOARD & PORTAL
+# ============================================================
+
+@app.route("/patient-portal")
+def patient_portal():
+    if "user" not in session:
+        return redirect(url_for("home"))
+    if session.get("role") != "patient":
+        return redirect(url_for("dashboard"))
+
+    return render_template(
+        "patient_portal.html",
+        name=session.get("name", "Patient"),
+        username=session.get("user")
+    )
+
+
+@app.route("/dashboard")
+def dashboard():
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    patients = conn.execute("SELECT * FROM patients ORDER BY id DESC").fetchall()
+
+    appointments = []
+    try:
+        rows = conn.execute("SELECT * FROM appointments ORDER BY id ASC").fetchall()
+        for idx, row in enumerate(rows):
+            r = dict(row)
+            queue_no = idx + 1
+            appointments.append({
+                "queue_number": queue_no,
+                "patient_name": r.get("patient_name") or "Unknown Patient",
+                "appointment_date": r.get("appointment_date", "Not specified"),
+                "appointment_time": r.get("appointment_time", "Not specified"),
+                "consultation_type": r.get("consultation_type", "General Consultation"),
+                "status": r.get("status", "Waiting"),
+                "waiting_time": queue_no * 10
+            })
+    except sqlite3.OperationalError:
+        appointments = []
+
+    waiting_count = sum(
+        1 for a in appointments
+        if str(a["status"]).lower() in ["waiting", "pending", "confirmed", "booked"]
+    )
+    conn.close()
+
+    return render_template(
+        "dashboard.html",
+        patients=patients,
+        appointments=appointments,
+        appointment_count=len(appointments),
+        waiting_count=waiting_count
+    )
+
+
+# ============================================================
+# PATIENT REGISTRATION & CASE TAKING
+# ============================================================
+
+@app.route("/patient-registration", methods=["GET", "POST"])
+def patient_registration():
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        name = request.form.get("name")
+        age = request.form.get("age")
+        gender = request.form.get("gender")
+        patient_type = request.form.get("patient_type")
+        phone = request.form.get("phone")
+        preferred_lang = request.form.get("preferred_lang", "en")
+
+        conn = get_db()
+        last_patient = conn.execute(
+            "SELECT patient_id FROM patients WHERE patient_id IS NOT NULL ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+
+        patient_num = 1
+        if last_patient and last_patient["patient_id"]:
+            try:
+                patient_num = int(last_patient["patient_id"].split("-")[-1]) + 1
+            except (ValueError, IndexError):
+                patient_num = 1
+
+        new_pid = f"AYU-{patient_num:05d}"
+        cursor = conn.execute("""
+            INSERT INTO patients (patient_id, name, age, gender, patient_type, phone, preferred_lang)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (new_pid, name, age, gender, patient_type, phone, preferred_lang))
+
+        new_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for("case_taking", patient_id=new_id))
+
+    return render_template("patient_registration.html")
+
+
+@app.route("/case-taking/<int:patient_id>")
+def case_taking(patient_id):
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    patient = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    conversations = conn.execute(
+        "SELECT * FROM conversations WHERE patient_id = ? ORDER BY id", (patient_id,)
+    ).fetchall()
+    conn.close()
+
+    if not patient:
+        return "Patient not found", 404
+
+    lang = patient["preferred_lang"] if patient["preferred_lang"] in TRANSLATIONS else "en"
+    i18n = TRANSLATIONS[lang]
+
+    red_flags = [c["message"] for c in conversations if c["role"] == "red_flag"]
+
+    return render_template(
+        "case_taking.html",
+        patient=patient,
+        messages=conversations,
+        red_flags=red_flags,
+        lang=lang,
+        i18n=i18n
+    )
+
+
+@app.route("/case-taking/<int:patient_id>/set-language", methods=["POST"])
+def set_patient_language(patient_id):
+    lang = request.form.get("language", "en")
+    conn = get_db()
+    conn.execute("UPDATE patients SET preferred_lang = ? WHERE id = ?", (lang, patient_id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("case_taking", patient_id=patient_id))
+
+
+@app.route("/case-taking/<int:patient_id>/message", methods=["POST"])
+def case_taking_message(patient_id):
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    message = request.form.get("message", "").strip()
+    if not message:
+        return redirect(url_for("case_taking", patient_id=patient_id))
+
+    conn = get_db()
+    patient = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    if not patient:
+        conn.close()
+        return "Patient not found", 404
+
+    lang = patient["preferred_lang"] if patient["preferred_lang"] in TRANSLATIONS else "en"
+    i18n = TRANSLATIONS[lang]
+
+    # Save patient message
+    conn.execute(
+        "INSERT INTO conversations (patient_id, role, message) VALUES (?, 'patient', ?)",
+        (patient_id, message)
+    )
+
+    # Red Flag Check
+    lower_msg = message.lower()
+    detected_flag = None
+    for keyword, label in RED_FLAGS.items():
+        if keyword in lower_msg:
+            detected_flag = label
+            break
+
+    if detected_flag:
+        alert_text = i18n["red_flag_alert"].format(flag=detected_flag)
+        conn.execute(
+            "INSERT INTO conversations (patient_id, role, message) VALUES (?, 'red_flag', ?)",
+            (patient_id, alert_text)
+        )
+        conn.execute(
+            "INSERT INTO conversations (patient_id, role, message) VALUES (?, 'assistant', ?)",
+            (patient_id, i18n["doctor_notify"])
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for("case_taking", patient_id=patient_id))
+
+    # Progressive AI Questions
+    patient_responses = conn.execute(
+        "SELECT * FROM conversations WHERE patient_id = ? AND role = 'patient'", (patient_id,)
+    ).fetchall()
+    count = len(patient_responses)
+
+    if patient["patient_type"] in ["Pediatric", "Toddler"]:
+        q_map = {
+            1: i18n["pedia_q1"],
+            2: i18n["pedia_q2"],
+            3: i18n["pedia_q3"],
+            4: i18n["pedia_q4"]
+        }
+        next_q = q_map.get(count, i18n["pedia_done"])
+    else:
+        q_map = {
+            1: i18n["adult_q1"],
+            2: i18n["adult_q2"],
+            3: i18n["adult_q3"],
+            4: i18n["adult_q4"]
+        }
+        next_q = q_map.get(count, i18n["adult_done"])
+
+    conn.execute(
+        "INSERT INTO conversations (patient_id, role, message) VALUES (?, 'assistant', ?)",
+        (patient_id, next_q)
+    )
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("case_taking", patient_id=patient_id))
+
+
+@app.route("/doctor-summary/<int:patient_id>")
+def doctor_summary(patient_id):
+    if "user" not in session:
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    patient = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    conversations = conn.execute(
+        "SELECT * FROM conversations WHERE patient_id = ? ORDER BY id", (patient_id,)
+    ).fetchall()
+    conn.close()
+
+    if not patient:
+        return "Patient not found", 404
+
+    patient_messages = [c["message"] for c in conversations if c["role"] == "patient"]
+    red_flags = [c["message"] for c in conversations if c["role"] == "red_flag"]
+
+    def get_ans(idx):
+        return patient_messages[idx] if len(patient_messages) > idx else "Not provided"
+
+    return render_template(
+        "doctor_summary.html",
+        patient=patient,
+        chief_complaint=get_ans(0),
+        duration=get_ans(1),
+        associated_symptoms=get_ans(2),
+        medical_history=get_ans(3),
+        medicines=get_ans(4),
+        red_flags=red_flags
+    )
+
+
+# ============================================================
+# CLINIC UTILITIES & APPOINTMENTS
+# ============================================================
+
+@app.route("/medicine-availability", methods=["GET", "POST"])
+def medicine_availability():
+    medicine = None
+    searched = False
+    search_term = ""
+
+    inventory = [
+        {"name": "Ashwagandha", "category": "Ayurvedic Medicine", "available": True, "quantity": 25, "location": "Ayurvedic Pharmacy - Counter 1"},
+        {"name": "Triphala", "category": "Ayurvedic Medicine", "available": True, "quantity": 18, "location": "Ayurvedic Pharmacy - Counter 1"},
+        {"name": "Giloy", "category": "Ayurvedic Medicine", "available": True, "quantity": 12, "location": "Ayurvedic Pharmacy - Counter 2"},
+        {"name": "Tulsi", "category": "Ayurvedic Medicine", "available": True, "quantity": 20, "location": "Ayurvedic Pharmacy - Counter 1"},
+        {"name": "Paracetamol", "category": "Allopathic / OTC", "available": True, "quantity": 50, "location": "General Pharmacy - Counter 1"},
+        {"name": "Cetirizine", "category": "Allopathic / OTC", "available": True, "quantity": 40, "location": "General Pharmacy - Counter 1"},
+        {"name": "ORS", "category": "Oral Rehydration", "available": True, "quantity": 60, "location": "General Pharmacy - Counter 1"},
+        {"name": "Omeprazole", "category": "Gastrointestinal Medicine", "available": True, "quantity": 24, "location": "General Pharmacy - Counter 2"},
+        {"name": "Amoxicillin", "category": "Antibiotic", "available": True, "quantity": 10, "location": "General Pharmacy - Counter 3"},
+        {"name": "Arjuna", "category": "Ayurvedic Medicine", "available": False, "quantity": 0, "location": "Currently unavailable"}
+    ]
+
+    if request.method == "POST":
+        searched = True
+        search_term = request.form.get("medicine_name", "").strip()
+        medicine = next((m for m in inventory if search_term.lower() in m["name"].lower()), None)
+
+    return render_template(
+        "medicine_availability.html",
+        medicine=medicine,
+        searched=searched,
+        search_term=search_term
+    )
+
+
+@app.route("/document-extraction", methods=["GET", "POST"])
+def document_extraction():
+    extracted_text = None
+
+    if request.method == "POST":
+        document = request.files.get("document")
+        if document and document.filename:
+            fn = document.filename.lower()
+            if fn.endswith(".txt"):
+                try:
+                    extracted_text = document.read().decode("utf-8", errors="ignore")
+                except Exception:
+                    extracted_text = "Unable to read the text document."
+            elif fn.endswith(".pdf"):
+                try:
+                    import PyPDF2
+                    reader = PyPDF2.PdfReader(document)
+                    pages = [p.extract_text() for p in reader.pages if p.extract_text()]
+                    extracted_text = "\n\n".join(pages) or "No text detected in this PDF."
+                except ImportError:
+                    extracted_text = "PyPDF2 is not installed. Run: pip install PyPDF2"
+                except Exception as e:
+                    extracted_text = f"Error reading PDF: {e}"
+            else:
+                extracted_text = "Unsupported file format. Please upload a PDF or TXT file."
+
+    return render_template("document_extraction.html", extracted_text=extracted_text)
+
+
+@app.route("/appointment", methods=["GET", "POST"])
+def appointment():
+    conn = get_db()
+    appointment_data = None
+
+    if request.method == "POST":
+        patient_name = request.form.get("patient_name")
+        appointment_date = request.form.get("appointment_date")
+        appointment_time = request.form.get("appointment_time")
+        consultation_type = request.form.get("consultation_type")
+
+        count_row = conn.execute(
+            "SELECT COUNT(*) FROM appointments WHERE appointment_date = ?", (appointment_date,)
+        ).fetchone()
+        queue_number = (count_row[0] if count_row else 0) + 1
+        waiting_time = (queue_number - 1) * 15
+
+        conn.execute("""
+            INSERT INTO appointments (
+                patient_name, appointment_date, appointment_time,
+                consultation_type, queue_number, waiting_time, status
+            ) VALUES (?, ?, ?, ?, ?, ?, 'Waiting')
+        """, (patient_name, appointment_date, appointment_time, consultation_type, queue_number, waiting_time))
+        conn.commit()
+
+        appointment_data = {
+            "patient_name": patient_name,
+            "appointment_date": appointment_date,
+            "appointment_time": appointment_time,
+            "consultation_type": consultation_type,
+            "queue_number": queue_number,
+            "waiting_time": waiting_time
+        }
+
+    conn.close()
+    return render_template("appointment.html", patient=None, appointment=appointment_data)
+
+
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True)
+static/css/style.css
+CSS
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f5f7fa;
+    color: #222;
+}
+
+nav {
+    background: white;
+    padding: 18px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+.login-container {
+    width: 420px;
+    margin: 100px auto;
+    padding: 40px;
+    background: white;
+    text-align: center;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 15px;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #2563eb;
+    color: white;
+    font-size: 15px;
+    transition: 0.2s ease;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+.cards {
+    display: flex;
+    gap: 20px;
+    margin: 30px 0;
+}
+
+.card {
+    flex: 1;
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.card p {
+    font-size: 28px;
+    margin-bottom: 0;
+}
+
+table {
+    width: 100%;
+    background: white;
+    border-collapse: collapse;
+    margin-top: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+th, td {
+    padding: 14px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background: #f0f2f5;
+}
+
+form {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+}
+
+/* Red Flag Styles */
+.red-flag-alert {
+    background: #fff3cd;
+    border: 2px solid #dc3545;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.red-flag-alert h2 {
+    color: #dc3545;
+    margin-top: 0;
+}
+
+.red-flag-message {
+    background: #ffe5e5;
+    border-left: 5px solid #dc3545;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    max-width: 80%;
+}
+
+.red-flag-message strong {
+    color: #dc3545;
+}
+
+/* Chat & Voice UI */
+.chat-container {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 20px;
+}
+
+.chat-box {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    height: 450px;
+    overflow-y: auto;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.ai-message {
+    background: #eef2ff;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 4px solid #4f46e5;
+    max-width: 85%;
+    align-self: flex-start;
+}
+
+.user-message {
+    background: #f0fdf4;
+    padding: 15px;
+    border-radius: 10px;
+    border-right: 4px solid #16a34a;
+    max-width: 85%;
+    align-self: flex-end;
+}
+
+.chat-input-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.chat-input-form input {
+    margin: 0;
+    flex: 1;
+}
+
+.voice-btn {
+    background: #10b981;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.voice-btn.recording {
+    background: #ef4444;
+    animation: pulse 1s infinite;
+}
+
+.speaker-btn {
+    background: transparent;
+    color: #4f46e5;
+    border: none;
+    font-size: 18px;
+    padding: 4px 8px;
+    margin-left: 6px;
+    cursor: pointer;
+}
+
+.speaker-btn:hover {
+    background: #e0e7ff;
+}
+
+.lang-selector-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+templates/patient_registration.html
+HTML
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Medicine Availability - AarogyaCase AI</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
-    <style>
-
-        .medicine-page {
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 20px;
-        }
-
-        .search-card {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            margin-bottom: 25px;
-        }
-
-        .search-card h1 {
-            margin-bottom: 10px;
-        }
-
-        .search-card p {
-            color: #666;
-            margin-bottom: 25px;
-        }
-
-        .medicine-form {
-            display: flex;
-            gap: 10px;
-        }
-
-        .medicine-form input {
-            flex: 1;
-            padding: 14px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        .medicine-form button {
-            padding: 14px 25px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .result-card {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        }
-
-        .available {
-            color: green;
-            font-weight: bold;
-        }
-
-        .unavailable {
-            color: red;
-            font-weight: bold;
-        }
-
-        .medicine-details {
-            margin-top: 20px;
-        }
-
-        .medicine-details p {
-            padding: 8px 0;
-        }
-
-        .not-found {
-            background: #fff3f3;
-            padding: 20px;
-            border-radius: 10px;
-            color: #c62828;
-        }
-
-        .back-button {
-            display: inline-block;
-            margin-top: 25px;
-            text-decoration: none;
-        }
-
-    </style>
-
+    <title>Register Patient - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
-
 <body>
-
     <nav>
-
         <h2>🩺 AarogyaCase AI</h2>
-
-        <span>Medicine Availability</span>
-
+        <span>Patient Registration</span>
     </nav>
 
+    <div class="container" style="max-width: 650px;">
+        <form method="POST">
+            <h1>Register New Patient</h1>
+            <p>Enter patient details and select a preferred language for consultation.</p>
 
-    <div class="medicine-page">
+            <label>Full Name</label>
+            <input type="text" name="name" placeholder="Enter patient name" required>
 
-        <div class="search-card">
+            <label>Age</label>
+            <input type="number" name="age" placeholder="Enter age" min="0" max="120" required>
 
-            <h1>💊 Medicine Availability</h1>
+            <label>Gender</label>
+            <select name="gender" required>
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+            </select>
 
-            <p>
-                Check whether an Ayurvedic medicine is available
-                at the clinic pharmacy before visiting.
-            </p>
+            <label>Phone Number</label>
+            <input type="text" name="phone" placeholder="Enter contact number">
 
+            <label>Patient Category</label>
+            <select name="patient_type" required>
+                <option value="">Select Category</option>
+                <option value="Adult">Adult</option>
+                <option value="Pediatric">Pediatric</option>
+                <option value="Toddler">Toddler</option>
+            </select>
 
-            <form
-                method="POST"
-                action="/medicine-availability"
-                class="medicine-form"
-            >
+            <label>Preferred Language</label>
+            <select name="preferred_lang" required>
+                <option value="en">English</option>
+                <option value="hi">हिंदी (Hindi)</option>
+                <option value="bn">বাংলা (Bengali)</option>
+            </select>
 
-                <input
-                    type="text"
-                    name="medicine_name"
-                    placeholder="Enter medicine name e.g. Ashwagandha"
-                    value="{{ search_term }}"
-                    required
-                >
+            <button type="submit" style="width: 100%; margin-top: 10px;">
+                Register Patient & Start Case Taking
+            </button>
+        </form>
 
-                <button type="submit">
-                    🔍 Check Availability
-                </button>
+        <br>
+        <a href="/dashboard">
+            <button type="button" style="background: #64748b;">← Back to Dashboard</button>
+        </a>
+    </div>
+</body>
+</html>
+templates/case_taking.html
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Case Taking - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav>
+        <h2>🩺 AarogyaCase AI</h2>
+        <span>Multilingual & Voice Case Taking</span>
+    </nav>
 
+    <div class="chat-container">
+        <!-- TOP INFO & LANGUAGE SWITCHER -->
+        <div class="lang-selector-bar">
+            <div>
+                <strong>Patient:</strong> {{ patient["name"] }} ({{ patient["patient_id"] }}) |
+                <strong>Category:</strong> {{ patient["patient_type"] }}
+            </div>
+            <form method="POST" action="/case-taking/{{ patient['id'] }}/set-language" style="padding: 0; background: none; display: flex; gap: 8px;">
+                <select name="language" onchange="this.form.submit()" style="margin: 0; padding: 6px 10px; width: auto;">
+                    <option value="en" {% if lang == 'en' %}selected{% endif %}>English</option>
+                    <option value="hi" {% if lang == 'hi' %}selected{% endif %}>हिंदी (Hindi)</option>
+                    <option value="bn" {% if lang == 'bn' %}selected{% endif %}>বাংলা (Bengali)</option>
+                </select>
             </form>
-
         </div>
 
-
-        {% if searched %}
-
-            {% if medicine %}
-
-                <div class="result-card">
-
-                    <h2>
-                        {{ medicine["name"] }}
-                    </h2>
-
-                    <div class="medicine-details">
-
-                        <p>
-                            <strong>Category:</strong>
-                            {{ medicine["category"] }}
-                        </p>
-
-
-                        <p>
-
-                            <strong>Status:</strong>
-
-                            {% if medicine["available"] %}
-
-                                <span class="available">
-                                    ✅ Available
-                                </span>
-
-                            {% else %}
-
-                                <span class="unavailable">
-                                    ❌ Not Available
-                                </span>
-
-                            {% endif %}
-
-                        </p>
-
-
-                        <p>
-
-                            <strong>Quantity:</strong>
-
-                            {{ medicine["quantity"] }}
-
-                        </p>
-
-
-                        <p>
-
-                            <strong>Location:</strong>
-
-                            {{ medicine["location"] }}
-
-                        </p>
-
-                    </div>
-
-                </div>
-
-            {% else %}
-
-                <div class="not-found">
-
-                    <h3>
-                        ❌ Medicine Not Found
-                    </h3>
-
-                    <p>
-                        No medicine named
-                        <strong>{{ search_term }}</strong>
-                        was found in the clinic pharmacy.
-                    </p>
-
-                    <p>
-                        Try:
-                        Ashwagandha,
-                        Triphala,
-                        Giloy,
-                        Brahmi,
-                        or Chyawanprash.
-                    </p>
-
-                </div>
-
-            {% endif %}
-
+        <!-- RED FLAG BANNER -->
+        {% if red_flags %}
+        <div class="red-flag-alert">
+            <h2>⚠️ Immediate Medical Warning</h2>
+            {% for flag in red_flags %}
+                <p><strong>{{ flag }}</strong></p>
+            {% endfor %}
+            <p>Doctor intervention required. Automated questioning paused.</p>
+        </div>
         {% endif %}
 
+        <!-- CHAT CONVERSATION WINDOW -->
+        <div class="chat-box" id="chatBox">
+            {% if messages|length == 0 %}
+            <div class="ai-message">
+                <strong>🤖 AarogyaCase AI</strong>
+                <p>{{ i18n["welcome"] }}</p>
+                <p><strong>{{ i18n["initial_q"] }}</strong></p>
+                <button type="button" class="speaker-btn" onclick="speakText('{{ i18n["welcome"] }} {{ i18n["initial_q"] }}')">🔊 Read</button>
+            </div>
+            {% endif %}
 
-        <a
-            href="/dashboard"
-            class="back-button"
-        >
+            {% for message in messages %}
+                {% if message["role"] == "patient" %}
+                    <div class="user-message">
+                        <strong>👤 Patient</strong>
+                        <p>{{ message["message"] }}</p>
+                    </div>
+                {% elif message["role"] == "red_flag" %}
+                    <div class="red-flag-message">
+                        <strong>⚠️ EMERGENCY ALERT</strong>
+                        <p>{{ message["message"] }}</p>
+                        <button type="button" class="speaker-btn" onclick="speakText('{{ message["message"] }}')">🔊 Read</button>
+                    </div>
+                {% else %}
+                    <div class="ai-message">
+                        <strong>🤖 AarogyaCase AI</strong>
+                        <p>{{ message["message"] }}</p>
+                        <button type="button" class="speaker-btn" onclick="speakText('{{ message["message"] }}')">🔊 Read</button>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
 
-            <button type="button">
-                ← Back to Dashboard
+        <!-- SPEECH-TO-TEXT AND TEXT INPUT -->
+        <form class="chat-input-form" method="POST" action="/case-taking/{{ patient['id'] }}/message">
+            <input type="text" id="messageInput" name="message" placeholder="Type or click the microphone to speak..." autocomplete="off" required>
+            
+            <button type="button" id="voiceBtn" class="voice-btn" onclick="toggleVoiceInput()">
+                🎤 Speak
             </button>
+            
+            <button type="submit">Send</button>
+        </form>
 
-        </a>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px;">
+            <a href="/dashboard">
+                <button type="button" style="background: #64748b;">← Back to Dashboard</button>
+            </a>
 
+            <a href="/doctor-summary/{{ patient['id'] }}">
+                <button type="button" style="background: #059669;">📋 Finish & Generate Doctor Summary</button>
+            </a>
+        </div>
     </div>
 
-</body>
+    <!-- VOICE SCRIPT (SPEECH-TO-TEXT & TEXT-TO-SPEECH) -->
+    <script>
+        const chatBox = document.getElementById("chatBox");
+        chatBox.scrollTop = chatBox.scrollHeight;
 
+        const currentLang = "{{ lang }}";
+        const speechLangMap = {
+            "en": "en-US",
+            "hi": "hi-IN",
+            "bn": "bn-IN"
+        };
+
+        // Text-to-Speech (Audio Output)
+        function speakText(text) {
+            if (!('speechSynthesis' in window)) {
+                alert("Text-to-speech is not supported on this browser.");
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = speechLangMap[currentLang] || "en-US";
+            utterance.rate = 0.95;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Speech-to-Text (Voice Input)
+        let recognition = null;
+        let isRecording = false;
+        const voiceBtn = document.getElementById("voiceBtn");
+        const messageInput = document.getElementById("messageInput");
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = speechLangMap[currentLang] || "en-US";
+
+            recognition.onstart = function() {
+                isRecording = true;
+                voiceBtn.classList.add("recording");
+                voiceBtn.innerHTML = "⏹️ Listening...";
+            };
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                messageInput.value = transcript;
+            };
+
+            recognition.onerror = function(event) {
+                console.error("Speech recognition error:", event.error);
+                stopRecording();
+            };
+
+            recognition.onend = function() {
+                stopRecording();
+            };
+        } else {
+            voiceBtn.disabled = true;
+            voiceBtn.title = "Speech recognition is not supported in this browser.";
+        }
+
+        function toggleVoiceInput() {
+            if (!recognition) return;
+            if (isRecording) {
+                recognition.stop();
+                stopRecording();
+            } else {
+                recognition.lang = speechLangMap[currentLang] || "en-US";
+                recognition.start();
+            }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            voiceBtn.classList.remove("recording");
+            voiceBtn.innerHTML = "🎤 Speak";
+        }
+    </script>
+</body>
+</html>
+templates/doctor_summary.html
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Summary - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .summary-container { max-width: 950px; margin: 35px auto; padding: 20px; }
+        .summary-card { background: white; padding: 25px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .patient-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .info-box { padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .info-box strong { display: block; margin-bottom: 4px; color: #475569; }
+        .red-flag { background: #fee2e2; border-left: 5px solid #dc2626; padding: 15px; margin-bottom: 10px; border-radius: 6px; }
+        .normal-message { background: #f0fdf4; border-left: 5px solid #16a34a; padding: 15px; border-radius: 6px; }
+        .button-area { display: flex; gap: 15px; margin-top: 25px; }
+        @media print {
+            nav, .button-area { display: none; }
+            body { background: white; }
+            .summary-card { box-shadow: none; border: 1px solid #ccc; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <h2>🩺 AarogyaCase AI</h2>
+        <span>Doctor-Ready Case Summary</span>
+    </nav>
+
+    <div class="summary-container">
+        <div class="summary-card">
+            <h1>📋 Clinical Pre-Consultation Summary</h1>
+            <p>Automated summary generated from patient intake and voice case-taking.</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>👤 Patient Information</h2>
+            <div class="patient-grid">
+                <div class="info-box"><strong>Patient ID</strong>{{ patient["patient_id"] }}</div>
+                <div class="info-box"><strong>Name</strong>{{ patient["name"] }}</div>
+                <div class="info-box"><strong>Age / Gender</strong>{{ patient["age"] }} / {{ patient["gender"] }}</div>
+                <div class="info-box"><strong>Category</strong>{{ patient["patient_type"] }}</div>
+                <div class="info-box"><strong>Phone</strong>{{ patient["phone"] or "Not provided" }}</div>
+                <div class="info-box"><strong>Language Used</strong>{{ patient["preferred_lang"]|upper }}</div>
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <h2>⚠️ Emergency / Red Flag Screening</h2>
+            {% if red_flags %}
+                {% for flag in red_flags %}
+                    <div class="red-flag">
+                        <strong>Immediate Review Required:</strong>
+                        <p>{{ flag }}</p>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="normal-message">
+                    ✅ No acute red flag symptoms were triggered during the intake conversation.
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="summary-card">
+            <h2>🩺 Chief Complaint</h2>
+            <p>{{ chief_complaint }}</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>⏱️ Duration & Onset</h2>
+            <p>{{ duration }}</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>🔍 Associated Symptoms</h2>
+            <p>{{ associated_symptoms }}</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>📚 Medical & Allergy History</h2>
+            <p>{{ medical_history }}</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>💊 Current Medications & Supplements</h2>
+            <p>{{ medicines }}</p>
+        </div>
+
+        <div class="button-area">
+            <a href="/dashboard">
+                <button type="button" style="background: #64748b;">← Back to Dashboard</button>
+            </a>
+            <button type="button" onclick="window.print()">🖨️ Print Summary</button>
+        </div>
+    </div>
+</body>
+</html>
+templates/dashboard.html
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .dashboard-buttons { display: flex; gap: 12px; flex-wrap: wrap; margin: 20px 0; }
+        .queue-section { margin-top: 30px; }
+        .queue-card { background: white; padding: 18px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .queue-number { font-size: 20px; font-weight: bold; color: #2563eb; }
+    </style>
+</head>
+<body>
+<nav>
+    <h2>🩺 AarogyaCase AI</h2>
+    <div>
+        <span style="margin-right: 15px;">Doctor Dashboard</span>
+        <a href="/logout"><button type="button" style="background: #ef4444; padding: 6px 14px;">Logout</button></a>
+    </div>
+</nav>
+
+<div class="container">
+    <h1>Doctor Dashboard</h1>
+    <p>Manage patients, consultations, and triage queues.</p>
+
+    <div class="cards">
+        <div class="card">
+            <h3>Total Patients</h3>
+            <p>{{ patients|length }}</p>
+        </div>
+        <div class="card">
+            <h3>Waiting Queue</h3>
+            <p>{{ waiting_count }}</p>
+        </div>
+        <div class="card">
+            <h3>Appointments</h3>
+            <p>{{ appointment_count }}</p>
+        </div>
+    </div>
+
+    <div class="dashboard-buttons">
+        <a href="/patient-registration"><button type="button">+ Register New Patient</button></a>
+        <a href="/medicine-availability"><button type="button">💊 Medicine Inventory</button></a>
+        <a href="/appointment"><button type="button">📅 Book Consultation</button></a>
+        <a href="/document-extraction"><button type="button">📄 Medical Document</button></a>
+    </div>
+
+    <div class="queue-section">
+        <h2>👥 Current Waiting Queue</h2>
+        {% if appointments %}
+            {% for appt in appointments %}
+            <div class="queue-card">
+                <div class="queue-number">Queue Position #{{ appt["queue_number"] }}</div>
+                <p><strong>Patient:</strong> {{ appt["patient_name"] }} | <strong>Time:</strong> {{ appt["appointment_time"] }} ({{ appt["appointment_date"] }})</p>
+                <p><strong>Type:</strong> {{ appt["consultation_type"] }} | <strong>Est. Wait:</strong> {{ appt["waiting_time"] }} mins | <strong>Status:</strong> {{ appt["status"] }}</p>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="card"><p style="font-size: 16px;">No patients currently waiting in queue.</p></div>
+        {% endif %}
+    </div>
+
+    <h2>Recent Registered Patients</h2>
+    {% if patients %}
+    <table>
+        <thead>
+            <tr>
+                <th>Patient ID</th>
+                <th>Name</th>
+                <th>Age / Gender</th>
+                <th>Category</th>
+                <th>Language</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patient in patients %}
+            <tr>
+                <td>{{ patient["patient_id"] }}</td>
+                <td>{{ patient["name"] }}</td>
+                <td>{{ patient["age"] }} / {{ patient["gender"] }}</td>
+                <td>{{ patient["patient_type"] }}</td>
+                <td>{{ patient["preferred_lang"]|upper if patient["preferred_lang"] else "EN" }}</td>
+                <td>
+                    <a href="/case-taking/{{ patient['id'] }}">
+                        <button type="button">Start / View Case</button>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="card"><p style="font-size: 16px;">No patients registered yet.</p></div>
+    {% endif %}
+</div>
+</body>
+</html>
+templates/login.html
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        <h1>🩺 AarogyaCase AI</h1>
+        <p>AI & Multilingual Clinical Case Taking</p>
+
+        {% if error %}
+        <div style="background: #fee2e2; color: #dc2626; padding: 10px; border-radius: 6px; margin-bottom: 15px;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/login" style="padding: 0; box-shadow: none;">
+            <label style="text-align: left;">Username</label>
+            <input type="text" name="username" placeholder="doctor or patient" required>
+
+            <label style="text-align: left;">Password</label>
+            <input type="password" name="password" placeholder="1234" required>
+
+            <label style="text-align: left;">Login Role</label>
+            <select name="role" required>
+                <option value="">Select Account Type</option>
+                <option value="doctor">👨‍⚕️ Doctor</option>
+                <option value="patient">🧑 Patient</option>
+            </select>
+
+            <button type="submit" style="width: 100%;">Log In</button>
+        </form>
+
+        <div style="margin-top: 25px; font-size: 14px; text-align: left; background: #f8fafc; padding: 12px; border-radius: 6px;">
+            <strong>Demo Logins (Pass: 1234):</strong><br>
+            • Doctor: <code>doctor</code><br>
+            • Patient: <code>patient</code>
+        </div>
+    </div>
+</body>
+</html>
+templates/patient_portal.html
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Portal - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav>
+        <h2>🩺 AarogyaCase AI</h2>
+        <div>
+            <span>Patient Portal</span>
+            <a href="/logout"><button type="button" style="background: #ef4444; padding: 6px 14px; margin-left: 10px;">Logout</button></a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <h1>Welcome, {{ name }} 👋</h1>
+            <p style="font-size: 16px;">Access your digital case intake and clinical triage status.</p>
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <h3>🗣️ Multilingual Intake</h3>
+                <p style="font-size: 16px;">Case taking available in English, Hindi, and Bengali.</p>
+            </div>
+            <div class="card">
+                <h3>🎙️ Voice Enabled</h3>
+                <p style="font-size: 16px;">Speak your symptoms directly without typing.</p>
+            </div>
+            <div class="card">
+                <h3>⏱️ Live Triage</h3>
+                <p style="font-size: 16px;">Automated red flag alerts for emergency care.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📅 Appointments & Check-in</h2>
+            <p style="font-size: 16px;">Need to schedule a new consultation with the doctor?</p>
+            <a href="/appointment"><button type="button">Book Consultation</button></a>
+        </div>
+    </div>
+</body>
+</html>
+templates/appointment.html
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Appointment - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav>
+        <h2>🩺 AarogyaCase AI</h2>
+        <span>Appointment & Queue Booking</span>
+    </nav>
+
+    <div class="container" style="max-width: 600px;">
+        <form method="POST" action="/appointment">
+            <h1>📅 Schedule Consultation</h1>
+
+            <label>Patient Name</label>
+            <input type="text" name="patient_name" placeholder="Enter patient name" required>
+
+            <label>Appointment Date</label>
+            <input type="date" name="appointment_date" required>
+
+            <label>Preferred Time Slot</label>
+            <select name="appointment_time" required>
+                <option value="">Select Time</option>
+                <option value="10:00 AM">10:00 AM</option>
+                <option value="11:00 AM">11:00 AM</option>
+                <option value="12:00 PM">12:00 PM</option>
+                <option value="02:00 PM">02:00 PM</option>
+                <option value="03:00 PM">03:00 PM</option>
+            </select>
+
+            <label>Consultation Type</label>
+            <select name="consultation_type" required>
+                <option value="General Consultation">General Consultation</option>
+                <option value="Ayurvedic Consultation">Ayurvedic Consultation</option>
+                <option value="Follow-up">Follow-up</option>
+            </select>
+
+            <button type="submit" style="width: 100%;">Confirm Appointment</button>
+        </form>
+
+        {% if appointment %}
+        <div class="card" style="margin-top: 25px; border-left: 5px solid #2563eb;">
+            <h2>✅ Appointment Confirmed</h2>
+            <p style="font-size: 16px;"><strong>Patient:</strong> {{ appointment.patient_name }}</p>
+            <p style="font-size: 16px;"><strong>Date & Time:</strong> {{ appointment.appointment_date }} at {{ appointment.appointment_time }}</p>
+            <p style="font-size: 16px;"><strong>Queue Number:</strong> #{{ appointment.queue_number }}</p>
+            <p style="font-size: 16px;"><strong>Estimated Wait:</strong> {{ appointment.waiting_time }} minutes</p>
+        </div>
+        {% endif %}
+
+        <br>
+        <a href="/dashboard">
+            <button type="button" style="background: #64748b;">← Back to Dashboard</button>
+        </a>
+    </div>
+</body>
+</html>
+templates/medicine_availability.html
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medicine Availability - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .available { color: #16a34a; font-weight: bold; }
+        .unavailable { color: #dc2626; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <nav>
+        <h2>🩺 AarogyaCase AI</h2>
+        <span>Clinic Pharmacy Inventory</span>
+    </nav>
+
+    <div class="container" style="max-width: 650px;">
+        <form method="POST" action="/medicine-availability">
+            <h1>💊 Check Medicine Stock</h1>
+            <p>Search for Ayurvedic and Allopathic medicines in stock.</p>
+
+            <div style="display: flex; gap: 10px;">
+                <input type="text" name="medicine_name" placeholder="e.g., Ashwagandha, Paracetamol, Giloy" value="{{ search_term }}" required style="margin: 0;">
+                <button type="submit">Search</button>
+            </div>
+        </form>
+
+        {% if searched %}
+            {% if medicine %}
+            <div class="card" style="margin-top: 25px;">
+                <h2>{{ medicine["name"] }}</h2>
+                <p style="font-size: 16px;"><strong>Category:</strong> {{ medicine["category"] }}</p>
+                <p style="font-size: 16px;"><strong>Status:</strong> 
+                    {% if medicine["available"] %}
+                        <span class="available">✅ In Stock (Qty: {{ medicine["quantity"] }})</span>
+                    {% else %}
+                        <span class="unavailable">❌ Out of Stock</span>
+                    {% endif %}
+                </p>
+                <p style="font-size: 16px;"><strong>Storage Location:</strong> {{ medicine["location"] }}</p>
+            </div>
+            {% else %}
+            <div class="card" style="margin-top: 25px; border-left: 5px solid #dc2626;">
+                <h3>Medicine Not Found</h3>
+                <p style="font-size: 15px;">No record found for "<strong>{{ search_term }}</strong>".</p>
+            </div>
+            {% endif %}
+        {% endif %}
+
+        <br>
+        <a href="/dashboard">
+            <button type="button" style="background: #64748b;">← Back to Dashboard</button>
+        </a>
+    </div>
+</body>
 </html>

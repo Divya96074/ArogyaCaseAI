@@ -1,165 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Appointment & Queue - AarogyaCase AI</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/style.css') }}">
+    <title>Book Appointment - AarogyaCase AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
 <body>
-
     <nav>
         <h2>🩺 AarogyaCase AI</h2>
-        <span>Appointment & Queue Management</span>
+        <span>Appointment & Queue Booking</span>
     </nav>
 
-
-    <div class="form-container">
-
-        <h1>📅 Book Appointment</h1>
-
-        <p>
-            Schedule a consultation and get your queue position.
-        </p>
-
-
-        <form method="POST"
-              action="/appointment">
+    <div class="container" style="max-width: 600px;">
+        <form method="POST" action="/appointment">
+            <h1>📅 Schedule Consultation</h1>
 
             <label>Patient Name</label>
-
-            <input
-                type="text"
-                name="patient_name"
-                value="{{ patient['name'] if patient else '' }}"
-                placeholder="Enter patient name"
-                required
-            >
-
+            <input type="text" name="patient_name" placeholder="Enter patient name" required>
 
             <label>Appointment Date</label>
+            <input type="date" name="appointment_date" required>
 
-            <input
-                type="date"
-                name="appointment_date"
-                required
-            >
-
-
-            <label>Preferred Time</label>
-
+            <label>Preferred Time Slot</label>
             <select name="appointment_time" required>
-
                 <option value="">Select Time</option>
-
                 <option value="10:00 AM">10:00 AM</option>
                 <option value="11:00 AM">11:00 AM</option>
                 <option value="12:00 PM">12:00 PM</option>
                 <option value="02:00 PM">02:00 PM</option>
                 <option value="03:00 PM">03:00 PM</option>
-                <option value="04:00 PM">04:00 PM</option>
-
             </select>
-
 
             <label>Consultation Type</label>
-
             <select name="consultation_type" required>
-
-                <option value="">Select Type</option>
-
-                <option value="General Consultation">
-                    General Consultation
-                </option>
-
-                <option value="Ayurvedic Consultation">
-                    Ayurvedic Consultation
-                </option>
-
-                <option value="Follow-up">
-                    Follow-up
-                </option>
-
+                <option value="General Consultation">General Consultation</option>
+                <option value="Ayurvedic Consultation">Ayurvedic Consultation</option>
+                <option value="Follow-up">Follow-up</option>
             </select>
 
-
-            <button type="submit">
-                📅 Book Appointment
-            </button>
-
+            <button type="submit" style="width: 100%;">Confirm Appointment</button>
         </form>
 
-
         {% if appointment %}
-
-        <div class="summary-card">
-
+        <div class="card" style="margin-top: 25px; border-left: 5px solid #2563eb;">
             <h2>✅ Appointment Confirmed</h2>
-
-            <p>
-                <strong>Patient:</strong>
-                {{ appointment.patient_name }}
-            </p>
-
-            <p>
-                <strong>Date:</strong>
-                {{ appointment.appointment_date }}
-            </p>
-
-            <p>
-                <strong>Time:</strong>
-                {{ appointment.appointment_time }}
-            </p>
-
-            <p>
-                <strong>Consultation:</strong>
-                {{ appointment.consultation_type }}
-            </p>
-
-
-            <hr>
-
-
-            <h2>🎫 Queue Details</h2>
-
-            <p>
-                <strong>Queue Number:</strong>
-                #{{ appointment.queue_number }}
-            </p>
-
-            <p>
-                <strong>Estimated Waiting Time:</strong>
-                {{ appointment.waiting_time }} minutes
-            </p>
-
-            <p>
-                <strong>Status:</strong>
-                🟡 Waiting
-            </p>
-
+            <p style="font-size: 16px;"><strong>Patient:</strong> {{ appointment.patient_name }}</p>
+            <p style="font-size: 16px;"><strong>Date & Time:</strong> {{ appointment.appointment_date }} at {{ appointment.appointment_time }}</p>
+            <p style="font-size: 16px;"><strong>Queue Number:</strong> #{{ appointment.queue_number }}</p>
+            <p style="font-size: 16px;"><strong>Estimated Wait:</strong> {{ appointment.waiting_time }} minutes</p>
         </div>
-
         {% endif %}
 
-
         <br>
-
-
         <a href="/dashboard">
-
-            <button type="button">
-                ← Back to Dashboard
-            </button>
-
+            <button type="button" style="background: #64748b;">← Back to Dashboard</button>
         </a>
-
     </div>
-
 </body>
-
 </html>

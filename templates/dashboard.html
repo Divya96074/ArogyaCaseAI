@@ -1,387 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Dashboard - AarogyaCase AI</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
-    <style>
-
-        .dashboard-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin: 20px 0;
-        }
-
-        .queue-section {
-            margin-top: 30px;
-        }
-
-        .queue-card {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
-        }
-
-        .queue-number {
-            font-size: 22px;
-            font-weight: bold;
-        }
-
-        .waiting {
-            font-weight: bold;
-        }
-
-        .empty-message {
-            padding: 20px;
-            background: white;
-            border-radius: 12px;
-            margin-top: 15px;
-        }
-
-    </style>
-
+    <title>Doctor Portal - Swasthya Setu</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
-
 <body>
 
+    <nav class="app-navbar">
+        <div class="brand-wrap">
+            <div class="brand-icon">🩺</div>
+            <div>
+                <span class="brand-title">MediKiosk</span>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <a href="/logout" class="btn btn-outline btn-sm">Log Out</a>
+        </div>
+    </nav>
 
-<nav>
-
-    <h2>🩺 AarogyaCase AI</h2>
-
-    <span>Doctor Dashboard</span>
-
-</nav>
-
-
-<div class="container">
-
-
-    <h1>Doctor Dashboard</h1>
-
-    <p>
-        Manage patients, appointments and AI-assisted case taking.
-    </p>
-
-
-    <!-- DASHBOARD STATISTICS -->
-
-    <div class="cards">
-
-
-        <div class="card">
-
-            <h3>Total Patients</h3>
-
-            <p>
-                {{ patients|length }}
-            </p>
-
+    <div class="main-wrapper">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+            <div>
+                <h1 style="font-size: 26px; font-weight: 700;">Doctor Clinical Desk</h1>
+                <p style="color: var(--text-muted); font-size: 14px;">Manage patient intakes, summaries, and queue positions.</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="/patient-registration" class="btn btn-teal">+ New Patient</a>
+                <a href="/medicine-availability" class="btn btn-outline">💊 Pharmacy Stock</a>
+                <a href="/document-extraction" class="btn btn-outline">📄 Medical Documents</a>
+            </div>
         </div>
 
-
-        <div class="card">
-
-            <h3>Waiting Queue</h3>
-
-            <p>
-                {{ waiting_count }}
-            </p>
-
+        <div class="stats-grid">
+            <div class="stat-box">
+                <h4>Active Waiting Queue</h4>
+                <div class="stat-val" style="color: var(--primary);">{{ waiting_count }}</div>
+                <span style="font-size: 12px; color: var(--text-muted);">Real-time token wait time</span>
+            </div>
+            <div class="stat-box">
+                <h4>Total Consultations</h4>
+                <div class="stat-val" style="color: var(--teal-brand);">{{ appointment_count }}</div>
+                <span style="font-size: 12px; color: var(--text-muted);">Booked for today</span>
+            </div>
+            <div class="stat-box">
+                <h4>Registered Patients</h4>
+                <div class="stat-val">{{ patients|length }}</div>
+                <span style="font-size: 12px; color: var(--text-muted);">Total longitudinal records</span>
+            </div>
         </div>
 
+        <!-- ACTIVE QUEUE SECTION -->
+        <div class="ui-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="font-size: 18px; font-weight: 700;">⏱️ Active Queue</h3>
+                <a href="/appointment" class="btn btn-primary btn-sm">+ Book / Add to Queue</a>
+            </div>
 
-        <div class="card">
-
-            <h3>Appointments</h3>
-
-            <p>
-                {{ appointment_count }}
-            </p>
-
-        </div>
-
-
-    </div>
-
-
-    <!-- ACTION BUTTONS -->
-
-    <div class="dashboard-buttons">
-
-
-        <a href="/patient-registration">
-
-            <button type="button">
-                + Register New Patient
-            </button>
-
-        </a>
-
-
-        <a href="/medicine-availability">
-
-            <button type="button">
-                💊 Medicine Availability
-            </button>
-
-        </a>
-
-
-        <a href="/appointment">
-
-            <button type="button">
-                📅 Book Appointment
-            </button>
-
-        </a>
-
-
-        <a href="/document-extraction">
-
-            <button type="button">
-                📄 Medical Document
-            </button>
-
-        </a>
-
-
-    </div>
-
-
-    <!-- CURRENT QUEUE -->
-
-    <div class="queue-section">
-
-        <h2>🕐 Current Waiting Queue</h2>
-
-
-        {% if appointments %}
-
-
-            {% for appointment in appointments %}
-
-            <div class="queue-card">
-
-
-                <div class="queue-number">
-
-                    Queue #{{ appointment["queue_number"] }}
-
+            {% if appointments %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;">
+                    {% for appt in appointments %}
+                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; background: #fbfcfd;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span class="badge-tag badge-blue">Token #{{ appt["queue_number"] }}</span>
+                            <span class="badge-tag badge-success">{{ appt["status"] }}</span>
+                        </div>
+                        <h4 style="font-size: 16px; margin-bottom: 4px;">{{ appt["patient_name"] }}</h4>
+                        <p style="font-size: 12px; color: var(--text-muted);">
+                            🕒 Slot: {{ appt["appointment_time"] }} ({{ appt["appointment_date"] }})<br>
+                            🩺 {{ appt["consultation_type"] }} • Est. wait: <strong>{{ appt["waiting_time"] }}m</strong>
+                        </p>
+                    </div>
+                    {% endfor %}
                 </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 14px;">No patients are waiting in the queue.</p>
+            {% endif %}
+        </div>
 
-
-                <p>
-
-                    <strong>
-                        Patient:
-                    </strong>
-
-                    {{ appointment["patient_name"] }}
-
-                </p>
-
-
-                <p>
-
-                    <strong>
-                        Date:
-                    </strong>
-
-                    {{ appointment["appointment_date"] }}
-
-                </p>
-
-
-                <p>
-
-                    <strong>
-                        Time:
-                    </strong>
-
-                    {{ appointment["appointment_time"] }}
-
-                </p>
-
-
-                <p>
-
-                    <strong>
-                        Consultation:
-                    </strong>
-
-                    {{ appointment["consultation_type"] }}
-
-                </p>
-
-
-                <p>
-
-                    <strong>
-                        Estimated Waiting Time:
-                    </strong>
-
-                    {{ appointment["waiting_time"] }} minutes
-
-                </p>
-
-
-                <p class="waiting">
-
-                    Status:
-                    {{ appointment["status"] }}
-
-                </p>
-
-
+        <!-- PATIENT RECORDS TABLE -->
+        <div class="doctor-table-wrap">
+            <div style="padding: 18px 20px; border-bottom: 1px solid var(--border-color);">
+                <h3 style="font-size: 17px; font-weight: 700;">All Clinical Intake Records</h3>
             </div>
 
-            {% endfor %}
-
-
-        {% else %}
-
-
-            <div class="empty-message">
-
-                <h3>No patients in the waiting queue</h3>
-
-                <p>
-                    New appointments will appear here.
-                </p>
-
+            {% if patients %}
+            <table class="doctor-table">
+                <thead>
+                    <tr>
+                        <th>Patient ID</th>
+                        <th>Name</th>
+                        <th>Age / Gender</th>
+                        <th>Category</th>
+                        <th>Language</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in patients %}
+                    <tr>
+                        <td><strong>{{ p["patient_id"] }}</strong></td>
+                        <td>{{ p["name"] }}</td>
+                        <td>{{ p["age"] }} / {{ p["gender"] }}</td>
+                        <td><span class="badge-tag badge-teal">{{ p["patient_type"] }}</span></td>
+                        <td>{{ (p["preferred_lang"] or 'en')|upper }}</td>
+                        <td style="text-align: right;">
+                            <a href="/case-taking/{{ p['id'] }}" class="btn btn-teal btn-sm">
+                                🎙️ Intake / Voice
+                            </a>
+                            <a href="/doctor-summary/{{ p['id'] }}" class="btn btn-outline btn-sm">
+                                📋 Summary
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="padding: 24px; text-align: center; color: var(--text-muted);">
+                No patients registered yet. Click "+ New Patient Triage" above.
             </div>
-
-
-        {% endif %}
-
+            {% endif %}
+        </div>
     </div>
-
-
-    <!-- RECENT PATIENTS -->
-
-    <h2>Recent Patients</h2>
-
-
-    {% if patients %}
-
-
-    <table>
-
-        <thead>
-
-            <tr>
-
-                <th>Patient ID</th>
-
-                <th>Name</th>
-
-                <th>Age</th>
-
-                <th>Gender</th>
-
-                <th>Patient Type</th>
-
-                <th>Action</th>
-
-            </tr>
-
-        </thead>
-
-
-        <tbody>
-
-
-        {% for patient in patients %}
-
-
-        <tr>
-
-
-            <td>
-                {{ patient["patient_id"] }}
-            </td>
-
-
-            <td>
-                {{ patient["name"] }}
-            </td>
-
-
-            <td>
-                {{ patient["age"] }}
-            </td>
-
-
-            <td>
-                {{ patient["gender"] }}
-            </td>
-
-
-            <td>
-                {{ patient["patient_type"] }}
-            </td>
-
-
-            <td>
-
-                <a href="/case-taking/{{ patient['id'] }}">
-
-                    <button type="button">
-                        Start Case
-                    </button>
-
-                </a>
-
-            </td>
-
-
-        </tr>
-
-
-        {% endfor %}
-
-
-        </tbody>
-
-    </table>
-
-
-    {% else %}
-
-
-    <div class="card">
-
-        <h3>No Patients Registered</h3>
-
-        <p>
-            Register your first patient to begin
-            AI-assisted case taking.
-        </p>
-
-    </div>
-
-
-    {% endif %}
-
-
-</div>
-
 
 </body>
-
 </html>

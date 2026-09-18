@@ -1,154 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Login - AarogyaCase AI</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swasthya Setu - Healthcare Access</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .role-switch-container {
+            display: flex;
+            background: #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+        .role-switch-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .role-switch-btn.active {
+            background: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+    </style>
 </head>
-
-
 <body>
 
-    <div class="login-container">
+    <nav class="app-navbar">
+        <div class="brand-wrap">
+            <div class="brand-icon">🌐</div>
+            <div>
+                <span class="brand-title">MediKiosk</span>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <span class="badge-tag badge-teal">Secure Gateway</span>
+        </div>
+    </nav>
 
-        <div class="login-card">
-
-            <h1>
-                🩺 AarogyaCase AI
-            </h1>
-
-            <p>
-                AI-Assisted Patient Case Taking System
+    <div class="prototype-screen">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="width: 44px; height: 44px; background: var(--teal-light); color: var(--teal-brand); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 8px;">
+                🔒
+            </div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.8px; text-transform: uppercase;">
+                SECURE PORTAL
+            </div>
+            <h2 id="portalHeading" style="font-size: 24px; font-weight: 700; color: var(--text-dark); margin-top: 4px;">
+                Doctor Login
+            </h2>
+            <p id="portalSubheading" style="font-size: 13px; color: var(--text-muted);">
+                Access clinical referrals, appointments & case summaries
             </p>
-
-
-            {% if error %}
-
-            <div class="error-message">
-
-                {{ error }}
-
-            </div>
-
-            {% endif %}
-
-
-            <form
-                method="POST"
-                action="/login"
-            >
-
-
-                <!-- USERNAME -->
-
-                <label>
-                    Username
-                </label>
-
-                <input
-                    type="text"
-                    name="username"
-                    placeholder="Enter username"
-                    required
-                >
-
-
-                <!-- PASSWORD -->
-
-                <label>
-                    Password
-                </label>
-
-                <input
-                    type="password"
-                    name="password"
-                    placeholder="Enter password"
-                    required
-                >
-
-
-                <!-- ACCOUNT TYPE -->
-
-                <label>
-                    Login As
-                </label>
-
-                <select
-                    name="role"
-                    required
-                >
-
-                    <option value="">
-                        Select Account Type
-                    </option>
-
-                    <option value="doctor">
-                        👨‍⚕️ Doctor
-                    </option>
-
-                    <option value="patient">
-                        🧑 Patient
-                    </option>
-
-                </select>
-
-
-                <button
-                    type="submit"
-                >
-                    Login
-                </button>
-
-            </form>
-
-
-            <!-- DEMO ACCOUNT INFORMATION -->
-
-            <div class="demo-login">
-
-                <h3>
-                    Demo Accounts
-                </h3>
-
-                <p>
-                    <strong>Doctor:</strong>
-                    doctor / 1234
-                </p>
-
-                <p>
-                    <strong>Doctor 2:</strong>
-                    doctor2 / 1234
-                </p>
-
-                <p>
-                    <strong>Patient:</strong>
-                    patient / 1234
-                </p>
-
-                <p>
-                    <strong>Patient 2:</strong>
-                    patient2 / 1234
-                </p>
-
-            </div>
-
         </div>
 
+        <div class="role-switch-container">
+            <button type="button" class="role-switch-btn active" id="btnDoctorRole" onclick="switchRole('doctor')">
+                👨‍⚕️ Doctor Login
+            </button>
+            <button type="button" class="role-switch-btn" id="btnPatientRole" onclick="switchRole('patient')">
+                👤 Patient Login
+            </button>
+        </div>
+
+        {% if error %}
+        <div style="background: var(--danger-bg); color: var(--danger); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/login">
+            <input type="hidden" name="role" id="roleInput" value="doctor">
+
+            <div class="form-group">
+                <label id="userLabel">Doctor ID</label>
+                <input type="text" name="username" id="usernameField" value="doctor" placeholder="Enter Doctor ID" required>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" id="passwordField" value="1234" placeholder="Enter password" required>
+            </div>
+
+            <button type="submit" class="btn btn-teal btn-full" style="margin-top: 10px;">
+                Continue to Dashboard →
+            </button>
+        </form>
+
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color); text-align: center;">
+            <p style="font-size: 12px; color: var(--text-muted);">
+                Default Credentials: <strong>doctor / 1234</strong> or <strong>patient / 1234</strong>
+            </p>
+        </div>
     </div>
 
-</body>
+    <script>
+        function switchRole(role) {
+            const roleInput = document.getElementById('roleInput');
+            const heading = document.getElementById('portalHeading');
+            const subheading = document.getElementById('portalSubheading');
+            const userLabel = document.getElementById('userLabel');
+            const usernameField = document.getElementById('usernameField');
+            const btnDoc = document.getElementById('btnDoctorRole');
+            const btnPat = document.getElementById('btnPatientRole');
 
+            roleInput.value = role;
+
+            if (role === 'doctor') {
+                btnDoc.classList.add('active');
+                btnPat.classList.remove('active');
+                heading.innerText = "Doctor Login";
+                subheading.innerText = "Access clinical referrals, OPD queues & case summaries";
+                userLabel.innerText = "Doctor ID";
+                usernameField.value = "doctor";
+            } else {
+                btnPat.classList.add('active');
+                btnDoc.classList.remove('active');
+                heading.innerText = "Patient Login";
+                subheading.innerText = "Access your personal appointments and medicines";
+                userLabel.innerText = "Patient ID / Mobile";
+                usernameField.value = "patient";
+            }
+        }
+    </script>
+</body>
 </html>
