@@ -1,123 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Register Patient - AarogyaCase AI</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
+    <title>Register Patient - Swasthya Setu</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+<body style="background: #f0fdfa;">
 
-<body>
-
-    <nav>
-
-        <h2>🩺 AarogyaCase AI</h2>
-
-        <span>Patient Registration</span>
-
+    <!-- TOP NAVBAR -->
+    <nav class="app-navbar">
+        <div class="brand-wrap">
+            <div class="brand-icon">🌐</div>
+            <div>
+                <span class="brand-title">MediKiosk</span>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <a href="/dashboard" class="btn btn-outline btn-sm">← Back to Dashboard</a>
+        </div>
     </nav>
 
+    <!-- FORM WRAPPER -->
+    <div class="main-wrapper" style="max-width: 680px; margin: 36px auto;">
+        <div class="ui-card" style="padding: 32px 28px;">
+            
+            <div style="margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px;">
+                <h1 style="font-size: 24px; font-weight: 700; color: var(--text-dark); margin-top: 4px;">
+                    Register New Patient
+                </h1>
+            </div>
 
-    <div class="form-container">
+            <form method="POST" action="/patient-registration">
+                
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" name="name" placeholder="e.g. Your Name" required>
+                </div>
 
-        <h1>Register New Patient</h1>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Age (Years)</label>
+                        <input type="number" name="age" placeholder="e.g. 35" min="0" max="120" required>
+                    </div>
 
-        <p>Enter patient details to start AI-assisted case taking.</p>
+                    <div class="form-group">
+                        <label>Gender</label>
+                        <select name="gender" required>
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
 
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Phone / Contact Number</label>
+                        <input type="text" name="phone" placeholder="e.g. 9876543210">
+                    </div>
 
-        <form method="POST">
+                    <div class="form-group">
+                        <label>Patient Category</label>
+                        <select name="patient_type" required>
+                            <option value="">Select Category</option>
+                            <option value="Adult">Adult</option>
+                            <option value="Pediatric">Pediatric</option>
+                            <option value="Toddler">Toddler</option>
+                        </select>
+                    </div>
+                </div>
 
+                <div class="form-group">
+                    <label>Preferred Consultation Language</label>
+                    <select name="preferred_lang" required>
+                        <option value="en">English (Default)</option>
+                        <option value="hi">हिंदी (Hindi)</option>
+                        <option value="bn">বাংলা (Bengali)</option>
+                    </select>
+                </div>
 
-            <label>Patient Name</label>
+                <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
+                    <button type="submit" class="btn btn-teal btn-full" style="padding: 14px; font-size: 15px;">
+                        🎙️ Register & Start AI Case Taking →
+                    </button>
+                    <a href="/dashboard" class="btn btn-outline btn-full" style="text-align: center;">
+                        Cancel & Return
+                    </a>
+                </div>
 
-            <input
-                type="text"
-                name="name"
-                placeholder="Enter patient name"
-                required
-            >
+            </form>
 
-
-            <label>Age</label>
-
-            <input
-                type="number"
-                name="age"
-                placeholder="Enter age"
-                min="0"
-                max="120"
-                required
-            >
-
-
-            <label>Gender</label>
-
-            <select name="gender" required>
-
-                <option value="">Select Gender</option>
-
-                <option value="Male">Male</option>
-
-                <option value="Female">Female</option>
-
-                <option value="Other">Other</option>
-
-            </select>
-
-
-            <label>Phone Number</label>
-
-            <input
-                type="text"
-                name="phone"
-                placeholder="Enter phone number"
-            >
-
-
-            <label>Patient Type</label>
-
-            <select name="patient_type" required>
-
-                <option value="">Select Patient Type</option>
-
-                <option value="Adult">Adult</option>
-
-                <option value="Pediatric">Pediatric</option>
-
-                <option value="Toddler">Toddler</option>
-
-            </select>
-
-
-            <button type="submit">
-                Register Patient
-            </button>
-
-
-        </form>
-
-
-        <br>
-
-        <a href="/dashboard">
-
-            <button type="button">
-                ← Back to Dashboard
-            </button>
-
-        </a>
-
+        </div>
     </div>
 
 </body>
-
 </html>

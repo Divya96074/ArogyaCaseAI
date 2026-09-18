@@ -1,102 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Document Extraction - AarogyaCase AI</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
 <body>
-
     <nav>
-
         <h2>🩺 AarogyaCase AI</h2>
-
-        <span>Medical Document Extraction</span>
-
+        <span>Medical Record Text Extraction</span>
     </nav>
 
+    <div class="container" style="max-width: 650px;">
+        <form method="POST" action="/document-extraction" enctype="multipart/form-data">
+            <h1>📄 Medical Document Extraction</h1>
+            <p>Upload previous prescriptions or laboratory reports (PDF or TXT).</p>
 
-    <div class="form-container">
-
-        <h1>📄 Medical Document Extraction</h1>
-
-        <p>
-            Upload a medical document to extract important
-            patient information.
-        </p>
-
-
-        <form
-            method="POST"
-            action="/document-extraction"
-            enctype="multipart/form-data"
-        >
-
-            <label>
-                Select Medical Document
-            </label>
-
-            <input
-                type="file"
-                name="document"
-                accept="*/*"
-                required
-            >
-
-            <br><br>
-
-            <button type="submit">
-                📄 Extract Information
-            </button>
-
+            <input type="file" name="document" accept=".pdf,.txt" required>
+            <button type="submit" style="width: 100%;">Extract Text</button>
         </form>
 
-
         {% if extracted_text %}
-
-        <div class="summary-card">
-
-            <h2>✅ Extracted Information</h2>
-
-            <p>
-                The following information was extracted from
-                the uploaded document:
-            </p>
-
-            <div class="extracted-text">
-
-                {{ extracted_text }}
-
-            </div>
-
+        <div class="card" style="margin-top: 25px;">
+            <h2>Extracted Text</h2>
+            <pre style="white-space: pre-wrap; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; font-family: inherit;">{{ extracted_text }}</pre>
         </div>
-
         {% endif %}
 
-
         <br>
-
         <a href="/dashboard">
-
-            <button type="button">
-                ← Back to Dashboard
-            </button>
-
+            <button type="button" style="background: #64748b;">← Back to Dashboard</button>
         </a>
-
     </div>
-
 </body>
-
 </html>

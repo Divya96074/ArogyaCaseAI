@@ -1,311 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Doctor Summary - AarogyaCase AI</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-
-        .summary-container {
-            max-width: 1000px;
-            margin: 35px auto;
-            padding: 20px;
+        .summary-container { max-width: 950px; margin: 35px auto; padding: 20px; }
+        .summary-card { background: white; padding: 25px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .patient-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .info-box { padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .info-box strong { display: block; margin-bottom: 4px; color: #475569; }
+        .red-flag { background: #fee2e2; border-left: 5px solid #dc2626; padding: 15px; margin-bottom: 10px; border-radius: 6px; }
+        .normal-message { background: #f0fdf4; border-left: 5px solid #16a34a; padding: 15px; border-radius: 6px; }
+        .button-area { display: flex; gap: 15px; margin-top: 25px; }
+        @media print {
+            nav, .button-area { display: none; }
+            body { background: white; }
+            .summary-card { box-shadow: none; border: 1px solid #ccc; }
         }
-
-        .summary-card {
-            background: white;
-            padding: 25px;
-            margin-bottom: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        }
-
-        .summary-card h2 {
-            margin-bottom: 20px;
-        }
-
-        .patient-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-
-        .info-box {
-            padding: 15px;
-            background: #f5f7fa;
-            border-radius: 10px;
-        }
-
-        .info-box strong {
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .red-flag {
-            background: #fff0f0;
-            border-left: 5px solid #d32f2f;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-        }
-
-        .normal-message {
-            background: #f5f7fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .button-area {
-            display: flex;
-            gap: 15px;
-            margin-top: 25px;
-        }
-
-        @media (max-width: 700px) {
-
-            .patient-grid {
-                grid-template-columns: 1fr;
-            }
-
-        }
-
     </style>
-
 </head>
-
-
 <body>
-
     <nav>
-
         <h2>🩺 AarogyaCase AI</h2>
-
         <span>Doctor-Ready Case Summary</span>
-
     </nav>
 
-
     <div class="summary-container">
-
-
-        <!-- PAGE TITLE -->
-
         <div class="summary-card">
-
-            <h1>📋 Doctor-Ready Case Summary</h1>
-
-            <p>
-                AI-assisted summary generated from the patient's
-                case-taking conversation.
-            </p>
-
+            <h1>📋 Clinical Pre-Consultation Summary</h1>
+            <p>Automated summary generated from patient intake and voice case-taking.</p>
         </div>
 
-
-        <!-- PATIENT INFORMATION -->
-
         <div class="summary-card">
-
             <h2>👤 Patient Information</h2>
-
             <div class="patient-grid">
-
-                <div class="info-box">
-
-                    <strong>Patient ID</strong>
-
-                    {{ patient["patient_id"] }}
-
-                </div>
-
-
-                <div class="info-box">
-
-                    <strong>Name</strong>
-
-                    {{ patient["name"] }}
-
-                </div>
-
-
-                <div class="info-box">
-
-                    <strong>Age</strong>
-
-                    {{ patient["age"] }}
-
-                </div>
-
-
-                <div class="info-box">
-
-                    <strong>Gender</strong>
-
-                    {{ patient["gender"] }}
-
-                </div>
-
-
-                <div class="info-box">
-
-                    <strong>Patient Type</strong>
-
-                    {{ patient["patient_type"] }}
-
-                </div>
-
-
-                <div class="info-box">
-
-                    <strong>Phone</strong>
-
-                    {{ patient["phone"] or "Not provided" }}
-
-                </div>
-
+                <div class="info-box"><strong>Patient ID</strong>{{ patient["patient_id"] }}</div>
+                <div class="info-box"><strong>Name</strong>{{ patient["name"] }}</div>
+                <div class="info-box"><strong>Age / Gender</strong>{{ patient["age"] }} / {{ patient["gender"] }}</div>
+                <div class="info-box"><strong>Category</strong>{{ patient["patient_type"] }}</div>
+                <div class="info-box"><strong>Phone</strong>{{ patient["phone"] or "Not provided" }}</div>
+                <div class="info-box"><strong>Language Used</strong>{{ patient["preferred_lang"]|upper }}</div>
             </div>
-
         </div>
 
-
-        <!-- CHIEF COMPLAINT -->
-
         <div class="summary-card">
-
-            <h2>🩺 Chief Complaint</h2>
-
-            <p>
-                {{ chief_complaint }}
-            </p>
-
-        </div>
-
-
-        <!-- DURATION -->
-
-        <div class="summary-card">
-
-            <h2>⏱️ Duration</h2>
-
-            <p>
-                {{ duration }}
-            </p>
-
-        </div>
-
-
-        <!-- ASSOCIATED SYMPTOMS -->
-
-        <div class="summary-card">
-
-            <h2>🔍 Associated Symptoms</h2>
-
-            <p>
-                {{ associated_symptoms }}
-            </p>
-
-        </div>
-
-
-        <!-- MEDICAL HISTORY -->
-
-        <div class="summary-card">
-
-            <h2>📚 Medical History</h2>
-
-            <p>
-                {{ medical_history }}
-            </p>
-
-        </div>
-
-
-        <!-- CURRENT MEDICINES -->
-
-        <div class="summary-card">
-
-            <h2>💊 Current Medicines / Supplements</h2>
-
-            <p>
-                {{ medicines }}
-            </p>
-
-        </div>
-
-
-        <!-- RED FLAGS -->
-
-        <div class="summary-card">
-
-            <h2>⚠️ Red Flag Screening</h2>
-
+            <h2>⚠️ Emergency / Red Flag Screening</h2>
             {% if red_flags %}
-
                 {% for flag in red_flags %}
-
                     <div class="red-flag">
-
-                        <strong>
-                            ⚠️ Attention Required
-                        </strong>
-
-                        <p>
-                            {{ flag }}
-                        </p>
-
+                        <strong>Immediate Review Required:</strong>
+                        <p>{{ flag }}</p>
                     </div>
-
                 {% endfor %}
-
             {% else %}
-
                 <div class="normal-message">
-
-                    ✅ No red flags detected during
-                    automated screening.
-
+                    ✅ No acute red flag symptoms were triggered during the intake conversation.
                 </div>
-
             {% endif %}
-
         </div>
 
+        <div class="summary-card">
+            <h2>🩺 Chief Complaint</h2>
+            <p>{{ chief_complaint }}</p>
+        </div>
 
-        <!-- ACTIONS -->
+        <div class="summary-card">
+            <h2>⏱️ Duration & Onset</h2>
+            <p>{{ duration }}</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>🔍 Associated Symptoms</h2>
+            <p>{{ associated_symptoms }}</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>📚 Medical & Allergy History</h2>
+            <p>{{ medical_history }}</p>
+        </div>
+
+        <div class="summary-card">
+            <h2>💊 Current Medications & Supplements</h2>
+            <p>{{ medicines }}</p>
+        </div>
 
         <div class="button-area">
-
             <a href="/dashboard">
-
-                <button type="button">
-                    ← Back to Dashboard
-                </button>
-
+                <button type="button" style="background: #64748b;">← Back to Dashboard</button>
             </a>
-
-            <button
-                type="button"
-                onclick="window.print()"
-            >
-                🖨️ Print Summary
-            </button>
-
+            <button type="button" onclick="window.print()">🖨️ Print Summary</button>
         </div>
-
-
     </div>
-
 </body>
-
 </html>

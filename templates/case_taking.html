@@ -1,294 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>AI Case Taking - AarogyaCase AI</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
-    <style>
-
-        .case-actions {
-            margin-top: 30px;
-            padding: 25px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            text-align: center;
-        }
-
-        .case-actions h3 {
-            margin-bottom: 8px;
-        }
-
-        .case-actions p {
-            color: #666;
-            margin-bottom: 20px;
-        }
-
-        .summary-button {
-            display: inline-block;
-            text-decoration: none;
-        }
-
-        .summary-button button {
-            padding: 13px 22px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .dashboard-button {
-            display: inline-block;
-            margin-top: 15px;
-            text-decoration: none;
-        }
-
-        .dashboard-button button {
-            padding: 11px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-    </style>
-
+    <title>Voice Intake - Swasthya Setu</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
-
 <body>
 
-
-    <!-- NAVIGATION -->
-
-    <nav>
-
-        <h2>🩺 AarogyaCase AI</h2>
-
-        <span>AI Case Taking</span>
-
+    <nav class="app-navbar">
+        <div class="brand-wrap">
+            <div class="brand-icon">🎙️</div>
+            <div>
+                <span class="brand-title">MediKiosk</span>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <a href="/dashboard" class="btn btn-outline btn-sm">← Doctor Desk</a>
+        </div>
     </nav>
 
-
-    <div class="chat-container">
-
-
-        <!-- PATIENT INFORMATION -->
-
-        <div class="patient-info">
-
-            <h2>Patient Case Taking</h2>
-
-            <p>
-                Patient:
-                <strong>{{ patient["name"] }}</strong>
-            </p>
-
-            <p>
-                Patient ID:
-                <strong>{{ patient["patient_id"] }}</strong>
-            </p>
-
-            <p>
-                Age:
-                <strong>{{ patient["age"] }}</strong>
-            </p>
-
-            <p>
-                Gender:
-                <strong>{{ patient["gender"] }}</strong>
-            </p>
-
-            <p>
-                Patient Type:
-                <strong>{{ patient["patient_type"] }}</strong>
-            </p>
-
+    <div class="main-wrapper" style="max-width: 760px;">
+        
+        <!-- HEADER WITH DYNAMIC LANGUAGE SWITCHER -->
+        <div class="ui-card" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px;">
+            <div>
+                <span class="badge-tag badge-teal">{{ patient["patient_type"] }}</span>
+                <strong style="margin-left: 8px;">{{ patient["name"] }}</strong> ({{ patient["patient_id"] }})
+            </div>
+            <form method="POST" action="/case-taking/{{ patient['id'] }}/set-language" style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Language:</label>
+                <select name="language" onchange="this.form.submit()" style="padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                    <option value="en" {% if lang == 'en' %}selected{% endif %}>English</option>
+                    <option value="hi" {% if lang == 'hi' %}selected{% endif %}>हिंदी (Hindi)</option>
+                </select>
+            </form>
         </div>
-
-
-        <!-- RED FLAG ALERT -->
 
         {% if red_flags %}
-
-        <div class="red-flag-alert">
-
-            <h2>⚠️ RED FLAG DETECTED</h2>
-
-            {% for flag in red_flags %}
-
-            <p>
-                <strong>{{ flag }}</strong>
-            </p>
-
+        <div class="ui-card" style="background: var(--danger-bg); border-color: #fca5a5;">
+            <h3 style="color: var(--danger); font-size: 16px; margin-bottom: 6px;">⚠️ Immediate Clinical Alert Detected</h3>
+            {% for f in red_flags %}
+                <p style="font-size: 14px; font-weight: 600; color: #991b1b;">• {{ f }}</p>
             {% endfor %}
-
-            <p>
-                Doctor attention is recommended.
-            </p>
-
         </div>
-
         {% endif %}
 
-
-        <!-- CHAT BOX -->
-
-        <div class="chat-box">
-
-
+        <!-- CHAT CONVERSATION WINDOW -->
+        <div class="chat-window" id="chatBox">
             {% if messages|length == 0 %}
-
-            <div class="ai-message">
-
-                <strong>🤖 AarogyaCase AI</strong>
-
-                <p>
-                    Hello! I'm AarogyaCase AI.
-                    I'll ask you a few questions to understand
-                    the patient's health problem.
-                </p>
-
-                <p>
-
-                    <strong>
-                        What brings you to the clinic today?
-                    </strong>
-
-                </p>
-
-            </div>
-
+                <div class="bubble bubble-ai">
+                    <strong>🤖 Swasthya Setu Intake</strong><br>
+                    {{ i18n["welcome"] }}
+                    <p style="margin-top: 6px; font-weight: 600;">{{ i18n["initial_q"] }}</p>
+                    <button type="button" class="btn btn-outline btn-sm" style="margin-top: 6px;" onclick="speakText('{{ i18n["welcome"] }} {{ i18n["initial_q"] }}')">
+                        🔊 Read Aloud
+                    </button>
+                </div>
             {% endif %}
 
-
-            {% for message in messages %}
-
-
-                {% if message["role"] == "patient" %}
-
-                <div class="user-message">
-
-                    <p>
-                        {{ message["message"] }}
-                    </p>
-
-                </div>
-
-
-                {% elif message["role"] == "red_flag" %}
-
-                <div class="red-flag-message">
-
-                    <strong>
-                        ⚠️ RED FLAG
-                    </strong>
-
-                    <p>
-                        {{ message["message"] }}
-                    </p>
-
-                </div>
-
-
+            {% for m in messages %}
+                {% if m["role"] == "patient" %}
+                    <div class="bubble bubble-user">
+                        {{ m["message"] }}
+                    </div>
+                {% elif m["role"] == "red_flag" %}
+                    <div class="bubble bubble-alert">
+                        <strong>⚠️ EMERGENCY</strong><br>
+                        {{ m["message"] }}
+                        <button type="button" class="btn btn-outline btn-sm" style="margin-top: 6px;" onclick="speakText('{{ m["message"] }}')">🔊 Alert Readout</button>
+                    </div>
                 {% else %}
-
-                <div class="ai-message">
-
-                    <strong>
-                        🤖 AarogyaCase AI
-                    </strong>
-
-                    <p>
-                        {{ message["message"] }}
-                    </p>
-
-                </div>
-
+                    <div class="bubble bubble-ai">
+                        <strong>🤖 Aarogya Assistant</strong><br>
+                        {{ m["message"] }}
+                        <button type="button" class="btn btn-outline btn-sm" style="margin-top: 6px;" onclick="speakText('{{ m["message"] }}')">
+                            🔊 Read Aloud
+                        </button>
+                    </div>
                 {% endif %}
-
-
             {% endfor %}
-
-
         </div>
 
-
-        <!-- PATIENT RESPONSE -->
-
-        <form
-            class="chat-input"
-            method="POST"
-            action="/case-taking/{{ patient['id'] }}/message"
-        >
-
-            <input
-                type="text"
-                name="message"
-                placeholder="Type patient's response..."
-                autocomplete="off"
-                required
-            >
-
-            <button type="submit">
-                Send
+        <!-- VOICE AND TEXT INPUT FORM -->
+        <form class="voice-action-bar" method="POST" action="/case-taking/{{ patient['id'] }}/message">
+            <input type="text" id="voiceInputField" name="message" placeholder="Type answer or tap the mic to speak..." required autocomplete="off">
+            <button type="button" id="micBtn" class="btn mic-toggle" onclick="toggleVoiceRecording()">
+                🎤 Speak
             </button>
-
+            <button type="submit" class="btn btn-primary">Send</button>
         </form>
 
-
-        <!-- FINISH CASE -->
-
-        <div class="case-actions">
-
-            <h3>📋 Case Completed?</h3>
-
-            <p>
-                Once the patient has answered the required questions,
-                generate a doctor-ready summary.
-            </p>
-
-
-            <a
-                href="/doctor-summary/{{ patient['id'] }}"
-                class="summary-button"
-            >
-
-                <button type="button">
-                    📋 Finish Case & Generate Doctor Summary
-                </button>
-
+        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+            <a href="/dashboard" class="btn btn-outline">← Back to Dashboard</a>
+            <a href="/doctor-summary/{{ patient['id'] }}" class="btn btn-teal">
+                📋 Generate Doctor Case Summary
             </a>
-
         </div>
-
-
-        <!-- BACK TO DASHBOARD -->
-
-        <a
-            href="/dashboard"
-            class="dashboard-button"
-        >
-
-            <button type="button">
-                ← Back to Dashboard
-            </button>
-
-        </a>
-
-
     </div>
 
+    <!-- SPEECH-TO-TEXT AND TEXT-TO-SPEECH SCRIPT -->
+    <script>
+        const chatBox = document.getElementById("chatBox");
+        chatBox.scrollTop = chatBox.scrollHeight;
 
+        const currentLang = "{{ lang }}";
+        const voiceLangMap = {
+            "en": "en-IN",
+            "hi": "hi-IN",
+            "bn": "bn-IN"
+        };
+
+        // Text-to-Speech
+        function speakText(text) {
+            if (!('speechSynthesis' in window)) {
+                alert("Text-to-speech not supported on this browser.");
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = voiceLangMap[currentLang] || "en-IN";
+            utterance.rate = 0.95;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Web Speech STT
+        let isRecording = false;
+        let recognition = null;
+        const micBtn = document.getElementById("micBtn");
+        const inputField = document.getElementById("voiceInputField");
+
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRec) {
+            recognition = new SpeechRec();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = voiceLangMap[currentLang] || "en-IN";
+
+            recognition.onstart = () => {
+                isRecording = true;
+                micBtn.classList.add("listening");
+                micBtn.innerText = "⏹️ Listening...";
+            };
+
+            recognition.onresult = (e) => {
+                inputField.value = e.results[0][0].transcript;
+            };
+
+            recognition.onerror = () => stopRecording();
+            recognition.onend = () => stopRecording();
+        } else {
+            micBtn.disabled = true;
+            micBtn.title = "Microphone not supported on this browser.";
+        }
+
+        function toggleVoiceRecording() {
+            if (!recognition) return;
+            if (isRecording) {
+                recognition.stop();
+                stopRecording();
+            } else {
+                recognition.lang = voiceLangMap[currentLang] || "en-IN";
+                recognition.start();
+            }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            micBtn.classList.remove("listening");
+            micBtn.innerText = "🎤 Speak";
+        }
+    </script>
 </body>
-
 </html>
